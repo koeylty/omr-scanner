@@ -937,7 +937,8 @@
 
     function loadOpenCV() {
       const script = document.createElement('script');
-      script.src = 'https://docs.opencv.org/4.5.5/opencv.js';
+      
+      script.src = 'https://registry.npmmirror.com/@techstark/opencv-js/4.10.0-1/files/opencv.js';
       script.async = true;
       script.onload = () => {
         if (typeof cv !== 'undefined' && cv.onRuntimeInitialized) {
