@@ -1,0 +1,2687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OmniOMR - Desktop & Mobile OMR Scanner</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- SheetJS / XLSX -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    .step-active {
+      border-color: #3b82f6;
+      color: #1e3a8a;
+      background-color: #eff6ff;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 flex flex-col">
+
+  <!-- Header Banner -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 px-6 py-4 flex items-center justify-between shadow-sm">
+    <div class="flex items-center space-x-3">
+      <div class="bg-indigo-600 text-white p-2.5 rounded-xl shadow-md">
+        <i data-lucide="scan-line" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <h1 class="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+          OmniOMR <span class="text-xs bg-indigo-100 text-indigo-800 font-semibold px-2 py-0.5 rounded-full">Client-Side v2.9 Pro</span>
+        </h1>
+        <p class="text-xs text-slate-500">Professional Offline Optical Mark Recognition Engine</p>
+      </div>
+    </div>
+
+    <!-- OpenCV Status Indicator -->
+    <div id="cv-status-container" class="flex items-center space-x-3 bg-slate-100 px-4 py-2 rounded-full border border-slate-200">
+      <div id="cv-status-spinner" class="animate-spin rounded-full h-4.5 w-4.5 border-2 border-indigo-600 border-t-transparent"></div>
+      <span id="cv-status-text" class="text-xs font-semibold text-slate-600">Loading OpenCV.js core...</span>
+    </div>
+  </header>
+
+  <!-- Main Multi-Step Workspace Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+    
+    <!-- Left Navigation Steps Sidebar -->
+    <div class="lg:col-span-3 space-y-4">
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-2">Workspace Navigation</h3>
+        
+        <button onclick="switchStep(1)" id="step-btn-1" class="w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl border border-transparent transition-all duration-200 hover:bg-slate-50">
+          <div class="p-1.5 rounded-lg bg-slate-100 step-icon"><i data-lucide="layers" class="w-5 h-5"></i></div>
+          <div>
+            <div class="font-semibold text-sm">1. Calibration Template</div>
+            <div class="text-xxs text-slate-400">Anchor points & bubbles</div>
+          </div>
+        </button>
+
+        <button onclick="switchStep(2)" id="step-btn-2" class="w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl border border-transparent transition-all duration-200 hover:bg-slate-50" disabled>
+          <div class="p-1.5 rounded-lg bg-slate-100 step-icon"><i data-lucide="key-round" class="w-5 h-5"></i></div>
+          <div>
+            <div class="font-semibold text-sm">2. Answer Key</div>
+            <div class="text-xxs text-slate-400">Set perfect responses</div>
+          </div>
+        </button>
+
+        <button onclick="switchStep(3)" id="step-btn-3" class="w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl border border-transparent transition-all duration-200 hover:bg-slate-50" disabled>
+          <div class="p-1.5 rounded-lg bg-slate-100 step-icon"><i data-lucide="file-check-2" class="w-5 h-5"></i></div>
+          <div>
+            <div class="font-semibold text-sm">3. Grade Student Scans</div>
+            <div class="text-xxs text-slate-400">Batch process and export</div>
+          </div>
+        </button>
+      </div>
+
+      <!-- Quick Demo / Helper Panel -->
+      <div class="bg-indigo-900 text-white p-5 rounded-2xl shadow-lg relative overflow-hidden">
+        <div class="absolute -right-8 -bottom-8 opacity-10">
+          <i data-lucide="help-circle" class="w-32 h-32"></i>
+        </div>
+        <h4 class="font-bold text-base mb-1 flex items-center gap-1">
+          <i data-lucide="sparkles" class="w-4 h-4 text-amber-300"></i> No sheet ready?
+        </h4>
+        <p class="text-xs text-indigo-200 leading-relaxed mb-4">
+          Click below to load simulated calibration settings and generated student papers using your customized layout config!
+        </p>
+        <button onclick="loadDemoMode()" class="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-indigo-950 text-xs font-bold rounded-xl shadow transition duration-200 flex items-center justify-center gap-2">
+          <i data-lucide="play-circle" class="w-4 h-4"></i> Run Interactive Demo
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Workspace Dashboard Panel -->
+    <div class="lg:col-span-9 space-y-6">
+
+      <!-- STEP 1: CALIBRATION WORKSPACE -->
+      <section id="step-pane-1" class="space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-100">
+            <div>
+              <h2 class="text-lg font-bold text-slate-900">OMR Calibration Template</h2>
+              <p class="text-xs text-slate-500 mt-0.5">Configure your calibration grid manually, import JSON settings, or load our preconfigured default template bank.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="loadDefaultTemplate()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-sm">
+                <i data-lucide="sparkles" class="w-4 h-4"></i> Load Built-In 45-Q Template
+              </button>
+              <label class="cursor-pointer bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-sm">
+                <i data-lucide="image" class="w-4 h-4"></i> Upload Custom Sheet Image
+                <input type="file" id="template-upload" accept="image/*" class="hidden" onchange="handleTemplateUpload(event)">
+              </label>
+              <button onclick="triggerJSONUpload()" class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold px-4 py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-sm">
+                <i data-lucide="upload" class="w-4 h-4"></i> Import JSON Config
+              </button>
+              <input type="file" id="json-upload-input" accept=".json" class="hidden" onchange="handleJSONImport(event)">
+            </div>
+          </div>
+
+          <!-- Calibration Workspace & Controls -->
+          <div id="calibration-workspace" class="hidden grid grid-cols-1 xl:grid-cols-12 gap-6">
+            <!-- Left Action controls -->
+            <div class="xl:col-span-4 space-y-4 col-input-elements">
+              
+              <!-- 4-Corner Anchors Manual & Auto status -->
+              <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2">
+                <div class="flex items-center justify-between mb-1">
+                  <h4 class="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1"><i data-lucide="crop" class="w-4 h-4 text-rose-500"></i> Corner Box Anchors</h4>
+                  <button onclick="autoDetectAnchors()" class="text-indigo-600 hover:text-indigo-800 text-xs font-bold flex items-center gap-1">
+                    <i data-lucide="wand" class="w-3.5 h-3.5"></i> Auto Detect
+                  </button>
+                </div>
+                <p class="text-xxs text-slate-500 leading-normal mb-3">Adjust the 4 anchor markers manually by dragging, or input exact pixel coordinates below.</p>
+                
+                <!-- Expanded Manual Coordinate Inputs for Anchors -->
+                <div class="space-y-2 border-t border-slate-200 pt-2 text-xxs">
+                  <div class="grid grid-cols-2 gap-2">
+                    <div>
+                      <span class="font-semibold text-red-600 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Top Left (TL)</span>
+                      <div class="flex gap-1 mt-1">
+                        <input type="number" id="manual-anchor-tl-x" placeholder="X" oninput="updateAnchorFromInput('tl', 'x', this.value)" class="w-full px-1.5 py-1 bg-white border border-slate-200 rounded font-mono text-center">
+                        <input type="number" id="manual-anchor-tl-y" placeholder="Y" oninput="updateAnchorFromInput('tl', 'y', this.value)" class="w-full px-1.5 py-1 bg-white border border-slate-200 rounded font-mono text-center">
+                      </div>
+                    </div>
+                    <div>
+                      <span class="font-semibold text-blue-600 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Top Right (TR)</span>
+                      <div class="flex gap-1 mt-1">
+                        <input type="number" id="manual-anchor-tr-x" placeholder="X" oninput="updateAnchorFromInput('tr', 'x', this.value)" class="w-full px-1.5 py-1 bg-white border border-slate-200 rounded font-mono text-center">
+                        <input type="number" id="manual-anchor-tr-y" placeholder="Y" oninput="updateAnchorFromInput('tr', 'y', this.value)" class="w-full px-1.5 py-1 bg-white border border-slate-200 rounded font-mono text-center">
+                      </div>
+                    </div>
+                  </div>
+                  <div class="grid grid-cols-2 gap-2 mt-2">
+                    <div>
+                      <span class="font-semibold text-emerald-600 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Bottom Left (BL)</span>
+                      <div class="flex gap-1 mt-1">
+                        <input type="number" id="manual-anchor-bl-x" placeholder="X" oninput="updateAnchorFromInput('bl', 'x', this.value)" class="w-full px-1.5 py-1 bg-white border border-slate-200 rounded font-mono text-center">
+                        <input type="number" id="manual-anchor-bl-y" placeholder="Y" oninput="updateAnchorFromInput('bl', 'y', this.value)" class="w-full px-1.5 py-1 bg-white border border-slate-200 rounded font-mono text-center">
+                      </div>
+                    </div>
+                    <div>
+                      <span class="font-semibold text-amber-600 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Bottom Right (BR)</span>
+                      <div class="flex gap-1 mt-1">
+                        <input type="number" id="manual-anchor-br-x" placeholder="X" oninput="updateAnchorFromInput('br', 'x', this.value)" class="w-full px-1.5 py-1 bg-white border border-slate-200 rounded font-mono text-center">
+                        <input type="number" id="manual-anchor-br-y" placeholder="Y" oninput="updateAnchorFromInput('br', 'y', this.value)" class="w-full px-1.5 py-1 bg-white border border-slate-200 rounded font-mono text-center">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Metadata Blocks Card Creator -->
+              <div class="bg-indigo-900 text-white p-4 rounded-xl border border-indigo-950 space-y-3 shadow-md">
+                <h4 class="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <i data-lucide="user-cog" class="w-4 h-4 text-amber-300"></i> Metadata Columns Generator
+                </h4>
+                <p class="text-[10px] text-indigo-200 leading-tight">Create special OMR regions to scan student class rosters and numerical class numbers.</p>
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                  <button onclick="insertSpecialMetadataBlock('class')" class="py-2 bg-indigo-700 hover:bg-indigo-600 border border-indigo-500 rounded-lg text-xxs font-bold transition flex items-center justify-center gap-1">
+                    <i data-lucide="graduation-cap" class="w-3.5 h-3.5"></i> Add Class
+                  </button>
+                  <button onclick="insertSpecialMetadataBlock('classnum')" class="py-2 bg-indigo-700 hover:bg-indigo-600 border border-indigo-500 rounded-lg text-xxs font-bold transition flex items-center justify-center gap-1">
+                    <i data-lucide="hash" class="w-3.5 h-3.5"></i> Add Class No.
+                  </button>
+                </div>
+              </div>
+
+              <!-- Precision Size & Coordinate Customizer -->
+              <div id="manual-adjuster-panel" class="bg-indigo-50 p-4 rounded-xl border border-indigo-100 space-y-3 shadow-xs">
+                <div class="flex items-center justify-between">
+                  <h4 class="text-xs font-bold text-indigo-950 uppercase tracking-wider flex items-center gap-1.5">
+                    <i data-lucide="sliders-horizontal" class="w-4 h-4 text-indigo-600"></i> Precision Adjuster
+                  </h4>
+                  <label class="flex items-center gap-1 text-[10px] text-indigo-950 cursor-pointer" title="Translate or resize every row and block simultaneously.">
+                    <input type="checkbox" id="link-all-grids-adjuster" class="rounded accent-indigo-600">
+                    <span class="font-bold">Link All</span>
+                  </label>
+                </div>
+                <div id="precision-empty-msg" class="text-xxs text-slate-500 italic">
+                  Select any question row or metadata block on the canvas to edit its position, option spacing, and bubble width/height parameters explicitly.
+                </div>
+                <div id="precision-controls" class="hidden space-y-2 text-xxs font-medium text-slate-700">
+                  <div class="bg-white p-2.5 rounded-lg border border-indigo-100 flex items-center justify-between">
+                    <span class="font-bold text-slate-900" id="precision-target-label">Editing: Q1</span>
+                    <span class="text-[10px] text-slate-400 italic">Values in pixels</span>
+                  </div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <div>
+                      <label class="text-[10px] text-slate-500 block mb-0.5">X Position</label>
+                      <input type="number" id="manual-q-x" oninput="updateSelectedRowPrecision()" class="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs font-mono">
+                    </div>
+                    <div>
+                      <label class="text-[10px] text-slate-500 block mb-0.5">Y Position</label>
+                      <input type="number" id="manual-q-y" oninput="updateSelectedRowPrecision()" class="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs font-mono">
+                    </div>
+                  </div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <div>
+                      <label class="text-[10px] text-slate-500 block mb-0.5">Box Width (w)</label>
+                      <input type="number" id="manual-q-w" oninput="updateSelectedRowPrecision()" class="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs font-mono">
+                    </div>
+                    <div>
+                      <label class="text-[10px] text-slate-500 block mb-0.5">Box Height (h)</label>
+                      <input type="number" id="manual-q-h" oninput="updateSelectedRowPrecision()" class="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs font-mono">
+                    </div>
+                  </div>
+                  
+                  <!-- Responsive Space adjustment controls -->
+                  <div class="space-y-2 border-t border-slate-150 pt-2">
+                    <div id="horizontal-spacing-container">
+                      <label id="label-q-spacing" class="text-[10px] text-slate-500 block mb-0.5">Horizontal Option Spacing</label>
+                      <input type="number" id="manual-q-spacing" oninput="updateSelectedRowPrecision()" class="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs font-mono" placeholder="Auto">
+                    </div>
+                    <div id="vertical-spacing-container" class="hidden">
+                      <label class="text-[10px] text-slate-500 block mb-0.5">Vertical Row Spacing</label>
+                      <input type="number" id="manual-q-v-spacing" oninput="updateSelectedRowPrecision()" class="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs font-mono" placeholder="32">
+                    </div>
+                    <div id="column-gap-container" class="hidden">
+                      <label class="text-[10px] text-slate-500 block mb-0.5">Horizontal Column Gap</label>
+                      <input type="number" id="manual-q-col-gap" oninput="updateSelectedRowPrecision()" class="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs font-mono" placeholder="55">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- General Layout Info -->
+              <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2 text-xs">
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Total Questions:</span>
+                  <span id="calib-total-q" class="font-semibold text-slate-700">0</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Defined Bubbles:</span>
+                  <span id="calib-total-bubbles" class="font-semibold text-slate-700">0</span>
+                </div>
+                <div class="pt-2 border-t border-slate-200 flex gap-2">
+                  <button onclick="clearCalibration()" class="flex-1 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-medium rounded-lg text-xxs transition text-center">
+                    Reset Config
+                  </button>
+                  <button onclick="exportJSONCalibration()" class="flex-1 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium rounded-lg text-xxs transition text-center">
+                    Export JSON
+                  </button>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Canvas Workspace Panel -->
+            <div class="xl:col-span-8 flex flex-col items-center">
+              <div class="bg-slate-900 rounded-2xl w-full border border-slate-800 relative shadow-inner overflow-hidden flex flex-col min-h-[400px] max-h-[750px]">
+                
+                <!-- Non-overlapping Canvas Header Controls with Mode Switchers -->
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 border-b border-slate-800 bg-slate-950/50">
+                  <div class="flex items-center gap-2">
+                    <span class="bg-slate-800 text-xxs text-white font-mono px-2 py-1 rounded border border-slate-700 flex items-center gap-1.5">
+                      <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      Interactive Canvas
+                    </span>
+                    <!-- Active Mode Status Badges -->
+                    <span id="badge-mode-select" class="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded font-semibold">
+                      Mode: Select & Edit
+                    </span>
+                    <span id="badge-mode-draw" class="hidden text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded font-semibold animate-pulse">
+                      Mode: Drag to Draw Row
+                    </span>
+                  </div>
+                  
+                  <div class="flex items-center gap-3">
+                    <!-- Global Link Toggle in Canvas Header -->
+                    <label class="flex items-center gap-1 text-[11px] text-slate-300 bg-slate-850 px-2 py-1 rounded border border-slate-700 cursor-pointer hover:bg-slate-800 transition" title="Move or scale all rows at the same time">
+                      <input type="checkbox" id="link-all-grids-canvas" class="rounded accent-indigo-500">
+                      <span class="font-semibold">Link All Grids</span>
+                    </label>
+
+                    <!-- Interaction Mode Switchers -->
+                    <div class="bg-slate-800 p-0.5 rounded-lg border border-slate-700 flex">
+                      <button id="btn-mode-select" onclick="setCanvasMode('select')" class="px-2.5 py-1 text-xxs font-bold rounded-md bg-indigo-600 text-white transition flex items-center gap-1">
+                        <i data-lucide="mouse-pointer" class="w-3.5 h-3.5"></i> Select
+                      </button>
+                      <button id="btn-mode-draw" onclick="setCanvasMode('draw')" class="px-2.5 py-1 text-xxs font-bold rounded-md text-slate-400 hover:text-white transition flex items-center gap-1">
+                        <i data-lucide="crop" class="w-3.5 h-3.5"></i> Draw Row
+                      </button>
+                    </div>
+
+                    <!-- Fine-tune actions -->
+                    <div class="flex space-x-1 border-l border-slate-700 pl-3">
+                      <button onclick="adjustSelectedRadius(-1)" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded border border-slate-700 transition" title="Decrease Bubble Size">
+                        <i data-lucide="minus-circle" class="w-3.5 h-3.5"></i>
+                      </button>
+                      <button onclick="adjustSelectedRadius(1)" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded border border-slate-700 transition" title="Increase Bubble Size">
+                        <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+                      </button>
+                      <button onclick="deleteSelectedQuestion()" class="p-1.5 bg-rose-950 text-rose-300 hover:bg-rose-900 rounded border border-rose-800 transition" title="Delete Selected Question">
+                        <i data-lucide="trash" class="w-3.5 h-3.5"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Interaction Stage -->
+                <div class="relative max-w-full overflow-auto flex-1 flex justify-center items-center p-4">
+                  <canvas id="calibration-canvas" class="border border-slate-700 shadow-2xl bg-white max-w-full h-auto max-h-[580px] cursor-crosshair"></canvas>
+                </div>
+              </div>
+              <div class="w-full flex justify-between text-xxs text-slate-400 mt-2">
+                <span>Hold Shift + Drag to quickly reposition a block of question bubbles.</span>
+                <span id="canvas-coordinates" class="font-mono">x: 0, y: 0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty upload placeholder -->
+          <div id="calibration-placeholder" class="py-16 text-center border-2 border-dashed border-slate-300 rounded-2xl space-y-4">
+            <div class="bg-indigo-50 text-indigo-600 p-4 rounded-full inline-block">
+              <i data-lucide="file-up" class="w-8 h-8"></i>
+            </div>
+            <div class="max-w-md mx-auto space-y-1">
+              <h3 class="text-base font-bold text-slate-800">Upload your OMR layout template</h3>
+              <p class="text-xs text-slate-500 leading-relaxed">
+                Provide a blank digital JPG/PNG scan of your MC Sheet to calibrate and build anchor alignments. You can also press "Run Interactive Demo" below.
+              </p>
+            </div>
+            <div>
+              <label class="cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-5 py-3 rounded-xl transition inline-flex items-center gap-1.5 shadow-md">
+                <i data-lucide="image" class="w-4.5 h-4.5"></i> Select Template Image
+                <input type="file" id="template-upload-empty" accept="image/*" class="hidden" onchange="handleTemplateUpload(event)">
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Call to Action Footer -->
+        <div class="flex justify-end hidden" id="calibration-continue-footer">
+          <button onclick="switchStep(2)" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition flex items-center gap-2">
+            Proceed to Answer Key <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </section>
+
+      <!-- STEP 2: ANSWER KEY WORKSPACE -->
+      <section id="step-pane-2" class="hidden space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-100">
+            <div>
+              <h2 class="text-lg font-bold text-slate-900">Define Master Answer Key</h2>
+              <p class="text-xs text-slate-500 mt-0.5">Input correct answers for all calibrated MCQ rows before grading.</p>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="autofillAnswerKey('A')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition">All A</button>
+              <button onclick="autofillAnswerKey('B')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition">All B</button>
+              <button onclick="autofillAnswerKey('random')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold px-3 py-2 rounded-lg transition">Randomize</button>
+              <button onclick="clearAnswerKey()" class="bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold px-3 py-2 rounded-lg transition">Clear All</button>
+            </div>
+          </div>
+
+          <!-- Bulk Paste Text Area -->
+          <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <label class="text-xs font-bold text-slate-600 block flex items-center gap-1.5">
+              <i data-lucide="file-text" class="w-4.5 h-4.5 text-indigo-600"></i> Bulk Answer Key Parser (Smart Text Import)
+            </label>
+            <p class="text-xxs text-slate-500 leading-relaxed">
+              Paste or type your answers here. Supports <strong>Numbered Mapping</strong> (e.g. <code class="bg-slate-200 px-1 rounded text-slate-700">1. A, 2: B, Q3-C</code>) or raw <strong>Sequential Mapping</strong> (e.g. <code class="bg-slate-200 px-1 rounded text-slate-700">A B C D E</code> or a block of characters like <code class="bg-slate-200 px-1 rounded text-slate-700">ABCDE</code>).
+            </p>
+            <div class="flex flex-col sm:flex-row gap-2">
+              <textarea id="bulk-answers-input" rows="2" placeholder="Paste your answer key text here... (e.g. 1. A, 2. B, 3. C, 4. D, 5. E)" class="flex-1 px-3 py-2 bg-white border border-slate-200 text-xs rounded-xl focus:outline-indigo-500 resize-none font-mono"></textarea>
+              <button onclick="parseBulkAnswers()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-5 py-3 rounded-xl transition flex items-center justify-center gap-1.5 self-stretch sm:self-end shrink-0 shadow-sm">
+                <i data-lucide="sparkles" class="w-4 h-4"></i> Apply Parse
+              </button>
+            </div>
+          </div>
+
+          <!-- Interactive Answers Grid Form -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[500px] overflow-y-auto pr-2" id="answer-key-container">
+            <!-- Dynamic Key Rows injected here -->
+          </div>
+        </div>
+
+        <div class="flex justify-between items-center">
+          <button onclick="switchStep(1)" class="text-slate-600 hover:text-slate-900 font-semibold text-sm flex items-center gap-2">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Calibration
+          </button>
+          <button onclick="switchStep(3)" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition flex items-center gap-2">
+            Proceed to Scans Grading <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </section>
+
+      <!-- STEP 3: BATCH SCAN GRADER & RESULTS -->
+      <section id="step-pane-3" class="hidden space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-100">
+            <div>
+              <h2 class="text-lg font-bold text-slate-900">Grading & OMR Evaluation</h2>
+              <p class="text-xs text-slate-500 mt-0.5">Drop scanned student test sheets here to trigger instant warping alignment and evaluation.</p>
+            </div>
+            <div class="flex items-center gap-4">
+              <!-- Question Limit Selector -->
+              <div class="flex flex-col">
+                <span class="text-xxs text-slate-400 font-bold uppercase tracking-wider">Questions:</span>
+                <select id="question-limit-select" class="w-28 bg-slate-50 border border-slate-200 text-xs rounded-lg px-2 py-1 mt-1 focus:outline-indigo-500" onchange="setQuestionLimit(this.value)">
+                  <option value="45" selected>45 (Full)</option>
+                  <option value="30">30 (Partial)</option>
+                </select>
+              </div>
+              <!-- Threshold sliders -->
+              <div class="flex flex-col">
+                <span class="text-xxs text-slate-400 font-bold uppercase tracking-wider">Fill Threshold: <span id="thresh-val" class="text-indigo-600">30%</span></span>
+                <input type="range" id="sensitivity-slider" min="10" max="80" value="30" class="w-32 accent-indigo-600 mt-1" oninput="adjustSensitivity(this.value)">
+              </div>
+            </div>
+          </div>
+
+          <!-- Drag and drop region -->
+          <div id="scanner-dropzone" class="border-2 border-dashed border-indigo-200 hover:border-indigo-400 bg-indigo-50/20 hover:bg-indigo-50/50 p-8 rounded-2xl text-center cursor-pointer transition relative" onclick="triggerScanUpload()">
+            <input type="file" id="student-scans-upload" accept="image/*" multiple class="hidden" onchange="handleStudentScans(event)">
+            <div class="max-w-md mx-auto space-y-3">
+              <div class="bg-indigo-100 text-indigo-600 p-3 rounded-full inline-block">
+                <i data-lucide="files" class="w-7 h-7"></i>
+              </div>
+              <h3 class="text-sm font-bold text-slate-800">Drag & drop scanned student sheets</h3>
+              <p class="text-xxs text-slate-500">Supports batch upload (multiple JPG/PNG scans). We'll align, crop, and evaluate using optimal perspective warp filters instantly.</p>
+            </div>
+          </div>
+
+          <!-- Processing Progress loader -->
+          <div id="processing-loader" class="hidden flex items-center justify-between p-4 bg-indigo-50 rounded-xl border border-indigo-100 text-xs">
+            <div class="flex items-center space-x-3">
+              <div class="animate-spin rounded-full h-5 w-5 border-2 border-indigo-600 border-t-transparent"></div>
+              <span class="font-semibold text-slate-700" id="loader-message">Processing student sheets...</span>
+            </div>
+            <span class="font-mono text-indigo-700 font-bold" id="loader-progress">0%</span>
+          </div>
+
+          <!-- Render list of graded items & detailed scan previews -->
+          <div class="space-y-4">
+            <div class="flex justify-between items-center">
+              <h3 class="text-sm font-bold text-slate-800">Graded Records (<span id="graded-count">0</span>)</h3>
+              <div class="flex gap-2">
+                <button onclick="clearGradedRecords()" class="px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition">Clear All</button>
+                <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition flex items-center gap-1.5 shadow-sm">
+                  <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Export to Excel
+                </button>
+              </div>
+            </div>
+
+            <!-- Graded Students Table -->
+            <div class="overflow-x-auto border border-slate-100 rounded-xl shadow-xs bg-white">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="bg-slate-50 border-b border-slate-100 text-slate-500 uppercase text-[10px] tracking-wider font-semibold">
+                    <th class="py-3 px-4">Student ID / File</th>
+                    <th class="py-3 px-4">Class / No.</th>
+                    <th class="py-3 px-4">Correct / Total</th>
+                    <th class="py-3 px-4">Grade %</th>
+                    <th class="py-3 px-4">Evaluated Response Pattern (Click "Review Map" to override answers manually)</th>
+                    <th class="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="graded-tbody">
+                  <tr id="empty-table-row">
+                    <td colspan="6" class="py-8 text-center text-slate-400">No scanned student records found. Upload scan files above or trigger the simulation to start grading.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+    </div>
+  </main>
+
+  <!-- Modal Toast Alert Component -->
+  <div id="toast" class="fixed bottom-6 right-6 max-w-sm w-full bg-slate-900 text-white p-4 rounded-xl shadow-2xl transition-all transform translate-y-20 opacity-0 z-50 flex items-start space-x-3 pointer-events-none">
+    <div id="toast-icon-wrapper" class="p-1 rounded-lg">
+      <i data-lucide="info" class="w-5 h-5 text-indigo-400" id="toast-icon"></i>
+    </div>
+    <div class="flex-1">
+      <h5 class="text-xs font-bold" id="toast-title">Notification</h5>
+      <p class="text-xxs text-slate-300 mt-0.5 leading-normal" id="toast-body">Message here</p>
+    </div>
+  </div>
+
+  <!-- Detailed Diagnostic Overlay Modal (Review & Manual Alignment Correction) -->
+  <div id="diag-modal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-300">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-[98vw] max-w-7xl h-[95vh] overflow-hidden flex flex-col transform scale-95 transition-transform duration-300">
+      
+      <!-- Modal Header -->
+      <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="eye" class="w-5 h-5 text-indigo-600"></i>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900" id="modal-student-name">Diagnostic Alignment</h3>
+            <p class="text-xxs text-slate-500">Correct: <span class="font-bold text-indigo-600" id="modal-student-score">--</span> | Response validation map & manual corrections overrides</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <!-- Realignment Mode Trigger -->
+          <button onclick="toggleRealignmentMode()" id="btn-toggle-realign" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-100 text-amber-800 hover:bg-amber-200 transition flex items-center gap-1.5 border border-amber-200 shadow-sm">
+            <i data-lucide="move" class="w-3.5 h-3.5"></i> Fix Alignment Anchors
+          </button>
+          <button onclick="closeDiagnosticModal()" class="p-1.5 hover:bg-slate-200 rounded-lg text-slate-500 transition"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+      </div>
+      
+      <!-- Diagnostic Content Workspace (Left/Right Layout) -->
+      <div class="p-4 md:p-6 overflow-hidden flex-1 flex flex-col lg:flex-row gap-6 bg-slate-50/50">
+        
+        <!-- Rendered Scanned Area Overlay (LEFT SIDE) -->
+        <div class="w-full lg:w-2/3 flex flex-col h-full relative">
+          <div class="flex w-full justify-between items-end mb-2 shrink-0">
+            <h4 class="text-xxs font-bold text-slate-400 uppercase tracking-wider" id="canvas-header-title">Rectified Results View</h4>
+            <div id="realign-actions" class="hidden flex gap-2">
+              <button onclick="toggleRealignmentMode()" class="px-2 py-1 text-[10px] font-bold text-slate-500 hover:bg-slate-200 rounded transition">Cancel</button>
+              <button onclick="executeRealignment()" class="px-3 py-1 text-[10px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded shadow transition flex items-center gap-1">
+                <i data-lucide="refresh-cw" class="w-3 h-3"></i> Re-Warp & Grade
+              </button>
+            </div>
+          </div>
+          
+          <!-- Interactive Container for Zoom & Pan -->
+          <div id="diag-zoom-container" class="flex-1 bg-slate-900 rounded-xl relative overflow-hidden flex items-center justify-center border border-slate-800 cursor-grab">
+            <!-- Review Canvas (Default) -->
+            <canvas id="diag-canvas" class="max-w-full max-h-full object-contain shadow transition-transform duration-75 origin-center" style="transform: translate(0px, 0px) scale(1);"></canvas>
+            
+            <!-- Hidden Raw Align Canvas (Only shown when fixing anchors) -->
+            <canvas id="align-canvas" class="hidden max-w-full max-h-full object-contain border border-slate-700 bg-white rounded shadow cursor-crosshair"></canvas>
+            
+            <!-- Floating Zoom Control Toolbar -->
+            <div id="diag-zoom-toolbar" class="absolute bottom-4 right-4 flex bg-slate-950/80 backdrop-blur border border-slate-800 rounded-lg p-1.5 gap-1.5 shadow-xl z-50">
+              <button onclick="adjustDiagZoom(1.2)" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded transition" title="Zoom In">
+                <i data-lucide="zoom-in" class="w-4 h-4"></i>
+              </button>
+              <button onclick="adjustDiagZoom(0.8)" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded transition" title="Zoom Out">
+                <i data-lucide="zoom-out" class="w-4 h-4"></i>
+              </button>
+              <button onclick="resetDiagZoom()" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded transition" title="Reset Zoom">
+                <i data-lucide="maximize" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+          
+          <p id="realign-helper-text" class="hidden text-[10px] text-amber-600 mt-2 font-medium bg-amber-50 px-2 py-1 rounded border border-amber-100 w-full text-center shrink-0">
+            <i data-lucide="info" class="w-3 h-3 inline pb-0.5"></i> Drag the 4 corner anchors precisely over the printed squares on the raw scan, then click Re-Warp & Grade.
+          </p>
+        </div>
+
+        <!-- Question Grid List with Editable Override Selector Options (RIGHT SIDE) -->
+        <div class="w-full lg:w-1/3 flex flex-col h-full">
+          <div class="flex items-center justify-between mb-2 shrink-0">
+            <h4 class="text-xxs font-bold text-slate-400 uppercase tracking-wider">Override Scan Results</h4>
+            <span class="text-[10px] text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded font-medium">Changes Sync Instantly</span>
+          </div>
+          <div class="flex-1 bg-white border border-slate-200 rounded-xl overflow-y-auto p-4 space-y-2" id="modal-metric-list">
+            <!-- Dynamic metric cards with interactive override dropdown menus -->
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Consolidated Monolithic Script Implementation -->
+  <script>
+    // Essential math utility for calculating distance between points
+    function dist(x1, y1, x2, y2) { 
+      return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2)); 
+    }
+
+    // Letterbox & Aspect-Ratio Responsive Coordinate scale calculator
+    function getCanvasCoordinates(e, canvasElement) {
+      const rect = canvasElement.getBoundingClientRect();
+      const clickX = e.clientX - rect.left; 
+      const clickY = e.clientY - rect.top;
+
+      const canvasRatio = canvasElement.width / canvasElement.height;
+      const displayRatio = rect.width / rect.height;
+
+      let displayedWidth, displayedHeight, offsetLeft, offsetTop;
+
+      if (displayRatio > canvasRatio) {
+        displayedHeight = rect.height; 
+        displayedWidth = rect.height * canvasRatio;
+        offsetLeft = (rect.width - displayedWidth) / 2; 
+        offsetTop = 0;
+      } else {
+        displayedWidth = rect.width; 
+        displayedHeight = rect.width / canvasRatio;
+        offsetLeft = 0;
+        offsetTop = (rect.height - displayedHeight) / 2;
+      }
+
+      const x = Math.round((clickX - offsetLeft) * (canvasElement.width / displayedWidth));
+      const y = Math.round((clickY - offsetTop) * (canvasElement.height / displayedHeight));
+
+      return { x, y };
+    }
+
+    function showToast(title, body, type = "info") {
+      const toast = document.getElementById('toast');
+      const toastTitle = document.getElementById('toast-title');
+      const toastBody = document.getElementById('toast-body');
+      const wrapper = document.getElementById('toast-icon-wrapper');
+      
+      if (!toast || !toastTitle || !toastBody || !wrapper) return;
+      
+      toastTitle.innerText = title;
+      toastBody.innerText = body;
+      
+      wrapper.className = "p-1.5 rounded-lg ";
+      if (type === "success") { wrapper.classList.add("bg-emerald-500", "text-white"); document.getElementById('toast-icon').setAttribute("data-lucide", "check-circle"); } 
+      else if (type === "error") { wrapper.classList.add("bg-rose-500", "text-white"); document.getElementById('toast-icon').setAttribute("data-lucide", "alert-triangle"); } 
+      else if (type === "warning") { wrapper.classList.add("bg-amber-500", "text-indigo-950"); document.getElementById('toast-icon').setAttribute("data-lucide", "alert-circle"); } 
+      else { wrapper.classList.add("bg-indigo-500", "text-white"); document.getElementById('toast-icon').setAttribute("data-lucide", "info"); }
+      
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+      setTimeout(() => { toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none'); }, 5000);
+    }
+
+    function triggerJSONUpload() { document.getElementById('json-upload-input').click(); }
+    function triggerScanUpload() { document.getElementById('student-scans-upload').click(); }
+
+    let cvLoaded = false;
+    let activeStep = 1;
+    let sensitivityValue = 30;
+    let globalBubbleShape = 'circle';
+    let gradingQuestionLimit = 45;
+    
+    let calibrationData = {
+      imageSrc: null, aspectRatio: 1.414, targetSize: { width: 1000, height: 1400 },
+      anchors: {
+        tl: { x: 50, y: 50 }, tr: { x: 950, y: 50 },
+        bl: { x: 50, y: 1350 }, br: { x: 950, y: 1350 }
+      },
+      questions: []
+    };
+
+    let answerKey = {};
+    let gradedRecords = [];
+    let isConfigLoaded = false;
+
+    const calibCanvas = document.getElementById('calibration-canvas');
+    const calibCtx = calibCanvas.getContext('2d');
+    let rawTemplateImg = null;
+    let selectedQuestionIndex = -1;
+    
+    let canvasMode = 'select';
+    let isDrawingBox = false;
+    let drawStartX = 0; let drawStartY = 0;
+    let drawCurrentX = 0; let drawCurrentY = 0;
+
+    let draggingAnchor = null;
+    let draggingBlock = false;
+    let dragStartOffset = { x: 0, y: 0 };
+    let dragStartPos = [];
+
+    const alignCanvas = document.getElementById('align-canvas');
+    const alignCtx = alignCanvas.getContext('2d');
+    let isRealignMode = false;
+    let activeAlignRecordId = null;
+    let alignRawImg = null;
+    let alignDraggingAnchor = null;
+    let activeAlignAnchors = null;
+
+    // Zoom & Pan Workspace variables for Diagnostic preview
+    let diagZoom = 1.0;
+    let diagPanX = 0;
+    let diagPanY = 0;
+    let isPanningDiag = false;
+    let panStart = { x: 0, y: 0 };
+
+    let linkAllGridsCheckboxCanvas = document.getElementById('link-all-grids-canvas');
+    let linkAllGridsCheckboxAdjuster = document.getElementById('link-all-grids-adjuster');
+
+    const MOCK_BUILTIN_JSON_TEMPLATE = {
+      "meta": "OmniOMR Config Layout", "version": "2.8",
+      "targetSize": { "width": 1000, "height": 1414 },
+      "anchors": {
+        "tl": { "x": 59, "y": 56 }, "tr": { "x": 943, "y": 51 },
+        "bl": { "x": 63, "y": 1371 }, "br": { "x": 947, "y": 1369 }
+      },
+      "questions": []
+    };
+
+    function initializeBuiltinTemplateGrid() {
+      const questions = [];
+      const opts = ["A", "B", "C", "D", "E"];
+      const yCoords = [548, 572, 596, 620, 644, 668, 692, 716, 740, 764, 788, 812, 836, 860, 884, 908, 932, 956, 980, 1004];
+      
+      // Column 1 (Q1 to Q20)
+      for (let i = 0; i < 20; i++) {
+        const qY = yCoords[i];
+        const options = opts.map((lbl, oIdx) => ({
+          label: lbl,
+          x: 281 + (oIdx * 29),
+          y: qY,
+          r: 6,
+          w: 20,
+          h: 12,
+          shape: "rectangle"
+        }));
+        questions.push({
+          id: i + 1,
+          labelX: 221,
+          labelY: qY,
+          options: options
+        });
+      }
+
+      // Column 2 (Q21 to Q40)
+      for (let i = 0; i < 20; i++) {
+        const qY = yCoords[i];
+        const options = opts.map((lbl, oIdx) => ({
+          label: lbl,
+          x: 581 + (oIdx * 29),
+          y: qY,
+          r: 6,
+          w: 20,
+          h: 12,
+          shape: "rectangle"
+        }));
+        questions.push({
+          id: i + 21,
+          labelX: 521,
+          labelY: qY,
+          options: options
+        });
+      }
+
+      // Column 3 (Q41 to Q45)
+      for (let i = 0; i < 5; i++) {
+        const qY = yCoords[i];
+        const options = opts.map((lbl, oIdx) => ({
+          label: lbl,
+          x: 881 + (oIdx * 29),
+          y: qY,
+          r: 6,
+          w: 20,
+          h: 12,
+          shape: "rectangle"
+        }));
+        questions.push({
+          id: i + 41,
+          labelX: 821,
+          labelY: qY,
+          options: options
+        });
+      }
+
+      // Class Metadata Column Setup matching exact uploaded parameters on the left side (x: 281, 310)
+      const classOpts = [];
+      for (let r = 0; r < 6; r++) {
+        classOpts.push({
+          label: String(r + 1),
+          x: 281,
+          y: 258 + (r * 24),
+          r: 6,
+          w: 20,
+          h: 12,
+          shape: "rectangle"
+        });
+      }
+      const alpha = ['A', 'B', 'C', 'D', 'E'];
+      for (let r = 0; r < 5; r++) {
+        classOpts.push({
+          label: alpha[r],
+          x: 310,
+          y: 258 + (r * 24),
+          r: 6,
+          w: 20,
+          h: 12,
+          shape: "rectangle"
+        });
+      }
+      questions.push({
+        id: 'Class',
+        labelX: 221,
+        labelY: 258,
+        options: classOpts
+      });
+
+      // Class No. Metadata Column Setup matching exact uploaded parameters on the left side (x: 397, 426)
+      const classNumOpts = [];
+      for (let r = 0; r < 10; r++) {
+        classNumOpts.push({
+          label: String(r),
+          x: 397,
+          y: 258 + (r * 24),
+          r: 6,
+          w: 20,
+          h: 12,
+          shape: "rectangle"
+        });
+      }
+      for (let r = 0; r < 10; r++) {
+        classNumOpts.push({
+          label: String(r),
+          x: 426,
+          y: 258 + (r * 24),
+          r: 6,
+          w: 20,
+          h: 12,
+          shape: "rectangle"
+        });
+      }
+      questions.push({
+        id: 'Class No.',
+        labelX: 345,
+        labelY: 258,
+        options: classNumOpts
+      });
+
+      MOCK_BUILTIN_JSON_TEMPLATE.questions = questions;
+    }
+    initializeBuiltinTemplateGrid();
+
+    // Zoom & Pan transform updates
+    function updateDiagTransform() {
+      const diagCanvas = document.getElementById('diag-canvas');
+      const alignCanvas = document.getElementById('align-canvas');
+      const transformStyle = `translate(${diagPanX}px, ${diagPanY}px) scale(${diagZoom})`;
+      
+      if (diagCanvas) diagCanvas.style.transform = transformStyle;
+      if (alignCanvas) alignCanvas.style.transform = transformStyle;
+    }
+
+    // Zoom adjust helper
+    function adjustDiagZoom(factor) {
+      diagZoom = Math.max(0.5, Math.min(6.0, diagZoom * factor));
+      updateDiagTransform();
+    }
+
+    function resetDiagZoom() {
+      diagZoom = 1.0;
+      diagPanX = 0;
+      diagPanY = 0;
+      updateDiagTransform();
+    }
+
+    window.onload = function() {
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      loadOpenCV();
+
+      if (linkAllGridsCheckboxCanvas && linkAllGridsCheckboxAdjuster) {
+        linkAllGridsCheckboxCanvas.addEventListener('change', (e) => { linkAllGridsCheckboxAdjuster.checked = e.target.checked; });
+        linkAllGridsCheckboxAdjuster.addEventListener('change', (e) => { linkAllGridsCheckboxCanvas.checked = e.target.checked; });
+      }
+
+      // Initialize floating zoom & pan mechanics on the review container
+      const diagZoomContainer = document.getElementById('diag-zoom-container');
+
+      if (diagZoomContainer) {
+        // Prevent phantom drag
+        const dCanvas = document.getElementById('diag-canvas');
+        if (dCanvas) dCanvas.addEventListener('dragstart', (e) => e.preventDefault());
+
+        // Zoom via Mouse Wheel (Supports both Review and Realign modes natively)
+        diagZoomContainer.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          const factor = e.deltaY < 0 ? 1.15 : 0.85;
+          adjustDiagZoom(factor);
+        }, { passive: false });
+
+        // Pan on mouse click & drag
+        diagZoomContainer.addEventListener('mousedown', (e) => {
+          // If we are explicitly dragging an anchor in realign mode, don't pan!
+          if (isRealignMode && alignDraggingAnchor) return;
+          
+          isPanningDiag = true;
+          diagZoomContainer.classList.remove('cursor-grab');
+          diagZoomContainer.classList.add('cursor-grabbing');
+          panStart = { x: e.clientX - diagPanX, y: e.clientY - diagPanY };
+        });
+
+        window.addEventListener('mousemove', (e) => {
+          if (!isPanningDiag) return;
+          diagPanX = e.clientX - panStart.x;
+          diagPanY = e.clientY - panStart.y;
+          updateDiagTransform();
+        });
+
+        window.addEventListener('mouseup', () => {
+          if (isPanningDiag) {
+            isPanningDiag = false;
+            if (diagZoomContainer) {
+              diagZoomContainer.classList.remove('cursor-grabbing');
+              diagZoomContainer.classList.add('cursor-grab');
+            }
+          }
+        });
+      }
+    };
+
+    function loadOpenCV() {
+      const script = document.createElement('script');
+      script.src = 'https://docs.opencv.org/4.5.5/opencv.js';
+      script.async = true;
+      script.onload = () => {
+        if (typeof cv !== 'undefined' && cv.onRuntimeInitialized) {
+          cv.onRuntimeInitialized = onOpenCVReady;
+        } else {
+          let checkInterval = setInterval(() => {
+            if (typeof cv !== 'undefined' && cv.Mat) {
+              clearInterval(checkInterval);
+              onOpenCVReady();
+            }
+          }, 300);
+        }
+      };
+      script.onerror = () => { showToast("Initialization Error", "Failed to fetch OpenCV.js core CDN.", "error"); };
+      document.head.appendChild(script);
+    }
+
+    function onOpenCVReady() {
+      cvLoaded = true;
+      document.getElementById('cv-status-spinner').classList.add('hidden');
+      const statusIcon = document.getElementById('cv-status-container');
+      statusIcon.classList.remove('bg-slate-100', 'border-slate-200');
+      statusIcon.classList.add('bg-emerald-500', 'border-emerald-600', 'text-white');
+      document.getElementById('cv-status-text').innerHTML = '<span class="flex items-center gap-1"><i data-lucide="check-circle" class="w-4 h-4"></i> OpenCV Engine Connected</span>';
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      showToast("System Ready", "OpenCV.js computer vision engine initialized completely.", "success");
+    }
+
+    function setCanvasMode(mode) {
+      canvasMode = mode;
+      const btnSelect = document.getElementById('btn-mode-select');
+      const btnDraw = document.getElementById('btn-mode-draw');
+      const badgeSelect = document.getElementById('badge-mode-select');
+      const badgeDraw = document.getElementById('badge-mode-draw');
+
+      if (mode === 'select') {
+        if (btnSelect) btnSelect.className = "px-2.5 py-1 text-xxs font-bold rounded-md bg-indigo-600 text-white transition flex items-center gap-1";
+        if (btnDraw) btnDraw.className = "px-2.5 py-1 text-xxs font-bold rounded-md text-slate-400 hover:text-white transition flex items-center gap-1";
+        if (badgeSelect) badgeSelect.classList.remove('hidden');
+        if (badgeDraw) badgeDraw.classList.add('hidden');
+        calibCanvas.style.cursor = 'crosshair';
+      } else {
+        if (btnSelect) btnSelect.className = "px-2.5 py-1 text-xxs font-bold rounded-md text-slate-400 hover:text-white transition flex items-center gap-1";
+        if (btnDraw) btnDraw.className = "px-2.5 py-1 text-xxs font-bold rounded-md bg-amber-500 text-slate-950 transition flex items-center gap-1";
+        if (badgeSelect) badgeSelect.classList.add('hidden');
+        if (badgeDraw) badgeDraw.classList.remove('hidden');
+        calibCanvas.style.cursor = 'crosshair';
+        selectedQuestionIndex = -1;
+        updateManualAdjusterUI();
+      }
+      redrawCalibration();
+    }
+
+    function setGlobalShape(shapeType) {
+      globalBubbleShape = shapeType;
+      const circleBtn = document.getElementById('shape-circle-btn');
+      const rectBtn = document.getElementById('shape-rect-btn');
+      
+      if (shapeType === 'circle') {
+        if (circleBtn) circleBtn.className = "py-1.5 text-xs font-semibold rounded-lg border border-indigo-600 bg-indigo-50 text-indigo-700 transition";
+        if (rectBtn) rectBtn.className = "py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition";
+      } else {
+        if (circleBtn) circleBtn.className = "py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition";
+        if (rectBtn) rectBtn.className = "py-1.5 text-xs font-semibold rounded-lg border border-indigo-600 bg-indigo-50 text-indigo-700 transition";
+      }
+      
+      if (selectedQuestionIndex > -1) {
+        calibrationData.questions[selectedQuestionIndex].options.forEach(opt => { opt.shape = shapeType; });
+        redrawCalibration();
+      }
+    }
+
+    function setQuestionLimit(val) {
+      gradingQuestionLimit = parseInt(val);
+      clearGradedRecords();
+      buildAnswerKeyGrid();
+      syncAnswerCount();
+      showToast("Question Limit Updated", `Now grading up to ${gradingQuestionLimit} questions. Old scans cleared to prevent mismatch.`, "info");
+    }
+
+    function switchStep(stepNum) {
+      if (!cvLoaded) { showToast("OpenCV Pending", "Please wait until the OpenCV.js engine loads completely before navigating.", "warning"); return; }
+      
+      const standardQ = calibrationData.questions.filter(q => typeof q.id === 'number' && q.id <= gradingQuestionLimit);
+
+      if (stepNum === 2 && standardQ.length === 0) { showToast("No Calibration", "Please define at least 1 standard MCQ question slot or load simulation parameters in Step 1 first.", "warning"); return; }
+      if (stepNum === 3 && Object.keys(answerKey).length === 0) { showToast("Answer Key Missing", "Please configure the correct answer responses in Step 2 before grading scans.", "warning"); return; }
+
+      activeStep = stepNum;
+      
+      for (let s = 1; s <= 3; s++) {
+        const pane = document.getElementById(`step-pane-${s}`);
+        const btn = document.getElementById(`step-btn-${s}`);
+        if (!pane || !btn) continue;
+        
+        if (s === stepNum) { pane.classList.remove('hidden'); btn.classList.add('step-active', 'border-indigo-600'); } 
+        else { pane.classList.add('hidden'); btn.classList.remove('step-active', 'border-indigo-600'); }
+      }
+      
+      if (stepNum === 2) buildAnswerKeyGrid();
+      if (stepNum === 3) syncAnswerCount();
+    }
+
+    function syncAnswerCount() {
+      const count = Object.keys(answerKey).length;
+      const standardQuestions = calibrationData.questions.filter(q => typeof q.id === 'number' && q.id <= gradingQuestionLimit);
+      if (count < standardQuestions.length) showToast("Unfilled Answers", `${standardQuestions.length - count} questions are missing answers in the key. Unfilled questions default as wrong.`, "warning");
+    }
+
+    function adjustSensitivity(val) {
+      sensitivityValue = parseInt(val);
+      document.getElementById('thresh-val').innerText = `${val}%`;
+    }
+
+    function loadDefaultTemplate() {
+      calibrationData.anchors = JSON.parse(JSON.stringify(MOCK_BUILTIN_JSON_TEMPLATE.anchors));
+      calibrationData.questions = JSON.parse(JSON.stringify(MOCK_BUILTIN_JSON_TEMPLATE.questions));
+      calibrationData.targetSize = JSON.parse(JSON.stringify(MOCK_BUILTIN_JSON_TEMPLATE.targetSize));
+      calibrationData.aspectRatio = calibrationData.targetSize.height / calibrationData.targetSize.width;
+      calibCanvas.width = calibrationData.targetSize.width;
+      calibCanvas.height = calibrationData.targetSize.height;
+
+      isConfigLoaded = true; // Protects anchors against overwriting by auto-detector when base image loads
+
+      rawTemplateImg = new Image();
+      rawTemplateImg.onload = () => {
+        document.getElementById('calibration-placeholder').classList.add('hidden');
+        document.getElementById('calibration-workspace').classList.remove('hidden');
+        document.getElementById('calibration-continue-footer').classList.remove('hidden');
+        document.getElementById('step-btn-2').removeAttribute('disabled');
+
+        setCanvasMode('select');
+        redrawCalibration(); updateCalibrationStats(); syncAnchorManualFields();
+        showToast("Statewide Template Bank Loaded", "Loaded 45-Q rectangular grid calibration schema successfully. Ready for Step 2.", "success");
+      };
+      
+      const blankCanvas = document.createElement('canvas');
+      blankCanvas.width = 1000; blankCanvas.height = 1414;
+      const bCtx = blankCanvas.getContext('2d');
+      bCtx.fillStyle = "#ffffff"; bCtx.fillRect(0, 0, 1000, 1414);
+      rawTemplateImg.src = blankCanvas.toDataURL();
+    }
+
+    function handleTemplateUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      loadTemplateImage(file);
+    }
+
+    function loadTemplateImage(fileOrURL, isDemo = false) {
+      const reader = new FileReader();
+      const onImageLoad = (imgSrc) => {
+        rawTemplateImg = new Image();
+        rawTemplateImg.onload = () => {
+          calibrationData.imageSrc = imgSrc;
+          
+          const standardW = 1000;
+          const standardH = Math.round(standardW * (rawTemplateImg.height / rawTemplateImg.width));
+          
+          calibrationData.targetSize = { width: standardW, height: standardH };
+          calibrationData.aspectRatio = standardH / standardW;
+
+          // Only assign default anchors if a JSON config wasn't just imported perfectly
+          if (!isConfigLoaded) {
+            calibrationData.anchors = {
+              tl: { x: Math.round(standardW * 0.05), y: Math.round(standardH * 0.05) },
+              tr: { x: Math.round(standardW * 0.95), y: Math.round(standardH * 0.05) },
+              bl: { x: Math.round(standardW * 0.05), y: Math.round(standardH * 0.95) },
+              br: { x: Math.round(standardW * 0.95), y: Math.round(standardH * 0.95) }
+            };
+          }
+
+          calibCanvas.width = standardW; calibCanvas.height = standardH;
+
+          document.getElementById('calibration-placeholder').classList.add('hidden');
+          document.getElementById('calibration-workspace').classList.remove('hidden');
+          document.getElementById('calibration-continue-footer').classList.remove('hidden');
+          document.getElementById('step-btn-2').removeAttribute('disabled');
+
+          setCanvasMode('select');
+          redrawCalibration();
+
+          // Only run auto detect and overwrite anchors if this is a fresh setup
+          if (!isDemo && !isConfigLoaded) {
+             autoDetectAnchors();
+          } else if (isDemo) {
+             showToast("Demo Template Loaded", "Calibration grid generated.", "success");
+          } else if (isConfigLoaded) {
+             showToast("Config Preserved", "Template image loaded while perfectly preserving imported JSON layout anchors.", "success");
+          }
+          
+          updateCalibrationStats();
+          syncAnchorManualFields();
+        };
+        rawTemplateImg.src = imgSrc;
+      };
+
+      if (typeof fileOrURL === 'string') onImageLoad(fileOrURL);
+      else { reader.onload = (event) => onImageLoad(event.target.result); reader.readAsDataURL(fileOrURL); }
+    }
+
+    // Mathematical Anchor extraction engine
+    function findAnchorsRobustly(srcMat) {
+      let gray = new cv.Mat(); let thresh = new cv.Mat();
+      cv.cvtColor(srcMat, gray, cv.COLOR_RGBA2GRAY, 0);
+      
+      // Otsu Threshold is infinitely more reliable for harsh shadows than adaptive
+      cv.threshold(gray, thresh, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU);
+      
+      // Close morphological gaps inside broken solid squares
+      let M_close = cv.Mat.ones(5, 5, cv.CV_8U);
+      cv.morphologyEx(thresh, thresh, cv.MORPH_CLOSE, M_close);
+      M_close.delete();
+
+      let contours = new cv.MatVector(); let hierarchy = new cv.Mat();
+      cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+      
+      let candidates = [];
+      const canvasArea = srcMat.cols * srcMat.rows;
+      
+      for (let i = 0; i < contours.size(); ++i) {
+        let cnt = contours.get(i);
+        let rect = cv.boundingRect(cnt);
+        let area = cv.contourArea(cnt);
+        
+        // Loose constraints catch heavily distorted or cut-off corners (area > 200)
+        if (area > 200 && area < (canvasArea * 0.05)) {
+          let extent = area / (rect.width * rect.height);
+          if (extent > 0.4) {
+            candidates.push({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, area: area });
+          }
+        }
+      }
+
+      gray.delete(); thresh.delete(); contours.delete(); hierarchy.delete();
+
+      if (candidates.length < 4) return null;
+
+      const midX = srcMat.cols / 2; const midY = srcMat.rows / 2;
+      
+      let tl_grp = candidates.filter(c => c.x < midX && c.y < midY);
+      let tr_grp = candidates.filter(c => c.x >= midX && c.y < midY);
+      let bl_grp = candidates.filter(c => c.x < midX && c.y >= midY);
+      let br_grp = candidates.filter(c => c.x >= midX && c.y >= midY);
+
+      if (tl_grp.length === 0 || tr_grp.length === 0 || bl_grp.length === 0 || br_grp.length === 0) return null;
+
+      // Find extreme corners (mathematically closest to the absolute image corners)
+      let tl = tl_grp.sort((a,b) => (Math.pow(a.x, 2) + Math.pow(a.y, 2)) - (Math.pow(b.x, 2) + Math.pow(b.y, 2)))[0];
+      let tr = tr_grp.sort((a,b) => (Math.pow(srcMat.cols - a.x, 2) + Math.pow(a.y, 2)) - (Math.pow(srcMat.cols - b.x, 2) + Math.pow(b.y, 2)))[0];
+      let bl = bl_grp.sort((a,b) => (Math.pow(a.x, 2) + Math.pow(srcMat.rows - a.y, 2)) - (Math.pow(b.x, 2) + Math.pow(srcMat.rows - b.y, 2)))[0];
+      let br = br_grp.sort((a,b) => (Math.pow(srcMat.cols - a.x, 2) + Math.pow(srcMat.rows - a.y, 2)) - (Math.pow(srcMat.cols - b.x, 2) + Math.pow(srcMat.rows - b.y, 2)))[0];
+
+      return { tl, tr, bl, br };
+    }
+
+    function autoDetectAnchors() {
+      if (!cvLoaded || !rawTemplateImg) return;
+      try {
+        let src = cv.imread(calibCanvas);
+        let foundAnchors = findAnchorsRobustly(src);
+        src.delete();
+
+        if (!foundAnchors) { showToast("Detection Partial", `Could not locate solid corner boxes clearly. Please adjust markers manually.`, "warning"); return; }
+
+        calibrationData.anchors = foundAnchors;
+        showToast("Anchors Auto-Aligned", "Successfully locked solid anchor boxes in all four corners.", "success");
+        redrawCalibration(); syncAnchorManualFields();
+      } catch (err) { console.error(err); showToast("Auto Anchor Failed", "An error occurred during contour calculation.", "error"); }
+    }
+
+    function syncAnchorManualFields() {
+      if (document.getElementById('manual-anchor-tl-x')) {
+        document.getElementById('manual-anchor-tl-x').value = calibrationData.anchors.tl.x;
+        document.getElementById('manual-anchor-tl-y').value = calibrationData.anchors.tl.y;
+        document.getElementById('manual-anchor-tr-x').value = calibrationData.anchors.tr.x;
+        document.getElementById('manual-anchor-tr-y').value = calibrationData.anchors.tr.y;
+        document.getElementById('manual-anchor-bl-x').value = calibrationData.anchors.bl.x;
+        document.getElementById('manual-anchor-bl-y').value = calibrationData.anchors.bl.y;
+        document.getElementById('manual-anchor-br-x').value = calibrationData.anchors.br.x;
+        document.getElementById('manual-anchor-br-y').value = calibrationData.anchors.br.y;
+      }
+    }
+
+    function updateAnchorFromInput(anchorId, axis, val) {
+      const num = parseInt(val);
+      if (isNaN(num)) return;
+      calibrationData.anchors[anchorId][axis] = Math.max(0, Math.min(calibCanvas.width, num));
+      redrawCalibration(); updateCalibrationStats();
+    }
+
+    function generateGridLayout() {
+      const startQ = parseInt(document.getElementById('grid-start-q').value) || 1;
+      const numQ = parseInt(document.getElementById('grid-num-q').value) || 10;
+      const optsCount = parseInt(document.getElementById('grid-opts-count').value);
+      const layoutMode = document.getElementById('grid-layout-mode').value;
+      
+      const newQuestions = []; const labels = ['A', 'B', 'C', 'D', 'E', 'F'];
+      const bubbleRadius = 14; const rowHeight = 36; const colWidth = 32;
+      let startX = 250; let startY = 300;
+
+      for (let i = 0; i < numQ; i++) {
+        const qNum = startQ + i; const options = [];
+        let currentY = startY + (i * rowHeight); let currentX = startX;
+
+        if (layoutMode === 'columns') {
+          const columnSplit = 10; const colIndex = Math.floor(i / columnSplit); const rowIndexInCol = i % columnSplit;
+          currentX = 180 + (colIndex * 350); currentY = 300 + (rowIndexInCol * rowHeight);
+        }
+
+        for (let o = 0; o < optsCount; o++) {
+          options.push({ label: labels[o], x: currentX + (o * colWidth) + 60, y: currentY, r: bubbleRadius, w: bubbleRadius * 2, h: bubbleRadius * 2, shape: globalBubbleShape });
+        }
+        newQuestions.push({ id: qNum, labelX: currentX, labelY: currentY, options: options });
+      }
+
+      newQuestions.forEach(newQ => {
+        const index = calibrationData.questions.findIndex(q => q.id === newQ.id);
+        if (index > -1) calibrationData.questions[index] = newQ;
+        else calibrationData.questions.push(newQ);
+      });
+
+      calibrationData.questions.sort((a,b) => {
+        if (typeof a.id === 'number' && typeof b.id === 'number') return a.id - b.id;
+        return String(a.id).localeCompare(String(b.id));
+      });
+
+      document.getElementById('grid-start-q').value = startQ + numQ;
+      redrawCalibration(); updateCalibrationStats();
+      showToast("Question Block Added", `Successfully mapped Questions ${startQ} to ${startQ + numQ - 1}.`, "info");
+    }
+
+    function insertSpecialMetadataBlock(type) {
+      const bubbleRadius = 13; const startX = 350; const startY = 220; const colGap = 55; const rowGap = 32;
+      let newBlock = null;
+
+      if (type === 'class') {
+        const options = [];
+        for (let r = 0; r < 6; r++) { options.push({ label: String(r + 1), x: startX, y: startY + (r * rowGap), r: bubbleRadius, w: bubbleRadius * 2, h: bubbleRadius * 2, shape: globalBubbleShape }); }
+        const alpha = ['A', 'B', 'C', 'D', 'E'];
+        for (let r = 0; r < 5; r++) { options.push({ label: alpha[r], x: startX + colGap, y: startY + (r * rowGap), r: bubbleRadius, w: bubbleRadius * 2, h: bubbleRadius * 2, shape: globalBubbleShape }); }
+        newBlock = { id: 'Class', labelX: startX - 80, labelY: startY + 60, options: options };
+      } else if (type === 'classnum') {
+        const options = [];
+        for (let r = 0; r < 10; r++) { options.push({ label: String(r), x: startX + 180, y: startY + (r * rowGap), r: bubbleRadius, w: bubbleRadius * 2, h: bubbleRadius * 2, shape: globalBubbleShape }); }
+        for (let r = 0; r < 10; r++) { options.push({ label: String(r), x: startX + 180 + colGap, y: startY + (r * rowGap), r: bubbleRadius, w: bubbleRadius * 2, h: bubbleRadius * 2, shape: globalBubbleShape }); }
+        newBlock = { id: 'Class No.', labelX: startX + 100, labelY: startY + 120, options: options };
+      }
+
+      if (newBlock) {
+        const existingIdx = calibrationData.questions.findIndex(q => q.id === newBlock.id);
+        if (existingIdx > -1) calibrationData.questions[existingIdx] = newBlock;
+        else calibrationData.questions.push(newBlock);
+        
+        redrawCalibration(); updateCalibrationStats();
+        showToast("Metadata Block Generated", `Placed special metadata layout grid: "${newBlock.id}".`, "success");
+      }
+    }
+
+    function updateCalibrationStats() {
+      const stdQuestions = calibrationData.questions.filter(q => typeof q.id === 'number');
+      document.getElementById('calib-total-q').innerText = stdQuestions.length;
+      let totalBubbles = 0;
+      calibrationData.questions.forEach(q => totalBubbles += q.options.length);
+      if (document.getElementById('calib-total-bubbles')) document.getElementById('calib-total-bubbles').innerText = totalBubbles;
+      syncAnchorManualFields();
+    }
+
+    function clearCalibration() {
+      calibrationData.questions = []; selectedQuestionIndex = -1;
+      isConfigLoaded = false;
+      document.getElementById('grid-start-q').value = 1;
+      redrawCalibration(); updateCalibrationStats(); updateManualAdjusterUI();
+      showToast("Config Cleared", "Question layout metrics dropped to blank template.", "warning");
+    }
+
+    function redrawCalibration() {
+      if (!rawTemplateImg) return;
+      calibCtx.clearRect(0, 0, calibCanvas.width, calibCanvas.height);
+      calibCtx.drawImage(rawTemplateImg, 0, 0, calibCanvas.width, calibCanvas.height);
+
+      drawAnchorMarker(calibrationData.anchors.tl, "#f43f5e", "TL"); drawAnchorMarker(calibrationData.anchors.tr, "#3b82f6", "TR");
+      drawAnchorMarker(calibrationData.anchors.bl, "#10b981", "BL"); drawAnchorMarker(calibrationData.anchors.br, "#f59e0b", "BR");
+
+      calibrationData.questions.forEach((q, qIndex) => {
+        const isSelected = qIndex === selectedQuestionIndex;
+        calibCtx.fillStyle = isSelected ? "rgba(79, 70, 229, 0.1)" : "rgba(148, 163, 184, 0.05)";
+        calibCtx.strokeStyle = isSelected ? "#4f46e5" : "transparent"; calibCtx.lineWidth = 1.5;
+        
+        const leftX = Math.min(q.labelX, ...q.options.map(o => o.x)) - 15;
+        const rightX = Math.max(...q.options.map(o => o.x)) + 25;
+        const topY = Math.min(...q.options.map(o => o.y)) - 18;
+        const bottomY = Math.max(...q.options.map(o => o.y)) + 18;
+        
+        calibCtx.beginPath(); calibCtx.roundRect(leftX, topY, rightX - leftX, bottomY - topY, [8]);
+        calibCtx.fill(); calibCtx.stroke();
+
+        calibCtx.font = "bold 13px Inter, sans-serif"; calibCtx.fillStyle = isSelected ? "#4f46e5" : "#1e293b";
+        calibCtx.textBaseline = "middle"; calibCtx.textAlign = "left";
+        const headingText = typeof q.id === 'number' ? `Q ${q.id}` : q.id;
+        calibCtx.fillText(headingText, q.labelX, q.options[0].y);
+
+        q.options.forEach(opt => {
+          const shape = opt.shape || 'circle';
+          calibCtx.strokeStyle = isSelected ? "#4f46e5" : "#3b82f6"; calibCtx.lineWidth = isSelected ? 2.5 : 1.5;
+          const boxW = opt.w || (opt.r * 2); const boxH = opt.h || (opt.r * 2);
+
+          if (shape === 'rectangle') calibCtx.strokeRect(opt.x - boxW/2, opt.y - boxH/2, boxW, boxH);
+          else { calibCtx.beginPath(); calibCtx.arc(opt.x, opt.y, opt.r, 0, 2 * Math.PI); calibCtx.stroke(); }
+
+          calibCtx.beginPath(); calibCtx.arc(opt.x, opt.y, 1.5, 0, 2 * Math.PI);
+          calibCtx.fillStyle = isSelected ? "#4f46e5" : "#94a3b8"; calibCtx.fill();
+
+          calibCtx.font = "8px sans-serif"; calibCtx.fillStyle = isSelected ? "#4f46e5" : "#64748b";
+          calibCtx.textAlign = "center"; calibCtx.textBaseline = "middle"; calibCtx.fillText(opt.label, opt.x, opt.y);
+        });
+      });
+
+      if (canvasMode === 'draw' && isDrawingBox) {
+        calibCtx.strokeStyle = "#f59e0b"; calibCtx.lineWidth = 2; calibCtx.setLineDash([6, 4]);
+        calibCtx.strokeRect(drawStartX, drawStartY, drawCurrentX - drawStartX, drawCurrentY - drawStartY);
+        calibCtx.fillStyle = "rgba(245, 158, 11, 0.15)"; calibCtx.fillRect(drawStartX, drawStartY, drawCurrentX - drawStartX, drawCurrentY - drawStartY);
+        calibCtx.setLineDash([]);
+      }
+    }
+
+    function drawAnchorMarker(p, color, label) {
+      const size = 44; // Scaled up to perfectly match the user's uploaded template
+      const half = size / 2;
+      calibCtx.fillStyle = "rgba(255, 255, 255, 0.75)"; calibCtx.fillRect(p.x - half, p.y - half, size, size);
+      calibCtx.strokeStyle = color; calibCtx.lineWidth = 3; calibCtx.strokeRect(p.x - half, p.y - half, size, size);
+
+      calibCtx.beginPath();
+      calibCtx.moveTo(p.x - 6, p.y); calibCtx.lineTo(p.x + 6, p.y);
+      calibCtx.moveTo(p.x, p.y - 6); calibCtx.lineTo(p.x, p.y + 6);
+      calibCtx.strokeStyle = color; calibCtx.lineWidth = 1.5; calibCtx.stroke();
+      calibCtx.font = "bold 10px Inter"; calibCtx.fillStyle = "#1e293b"; calibCtx.textAlign = "center";
+      calibCtx.fillText(label, p.x, p.y - half - 8);
+    }
+
+    calibCanvas.addEventListener('mousedown', (e) => {
+      const coords = getCanvasCoordinates(e, calibCanvas);
+      const clickX = coords.x; const clickY = coords.y;
+
+      if (canvasMode === 'draw') {
+        isDrawingBox = true; drawStartX = clickX; drawStartY = clickY; drawCurrentX = clickX; drawCurrentY = clickY; return;
+      }
+
+      const anchorRadius = 18;
+      if (dist(clickX, clickY, calibrationData.anchors.tl.x, calibrationData.anchors.tl.y) < anchorRadius) { draggingAnchor = 'tl'; return; }
+      if (dist(clickX, clickY, calibrationData.anchors.tr.x, calibrationData.anchors.tr.y) < anchorRadius) { draggingAnchor = 'tr'; return; }
+      if (dist(clickX, clickY, calibrationData.anchors.bl.x, calibrationData.anchors.bl.y) < anchorRadius) { draggingAnchor = 'bl'; return; }
+      if (dist(clickX, clickY, calibrationData.anchors.br.x, calibrationData.anchors.br.y) < anchorRadius) { draggingAnchor = 'br'; return; }
+
+      let hitIdx = -1;
+      calibrationData.questions.forEach((q, idx) => {
+        q.options.forEach(opt => {
+          const maxDim = Math.max(opt.r, opt.w || 0, opt.h || 0);
+          if (dist(clickX, clickY, opt.x, opt.y) < maxDim + 5) hitIdx = idx;
+        });
+      });
+
+      if (hitIdx > -1) {
+        selectedQuestionIndex = hitIdx; const q = calibrationData.questions[hitIdx];
+        if (e.shiftKey || areAllGridsLinked()) {
+          draggingBlock = true; dragStartOffset = { x: clickX, y: clickY };
+          dragStartPos = calibrationData.questions.map(item => ({ id: item.id, labelX: item.labelX, labelY: item.labelY, options: item.options.map(o => ({ x: o.x, y: o.y })) }));
+        } else { draggingBlock = false; }
+      } else { selectedQuestionIndex = -1; }
+
+      redrawCalibration(); updateCalibrationStats(); updateManualAdjusterUI();
+    });
+
+    calibCanvas.addEventListener('mousemove', (e) => {
+      const coords = getCanvasCoordinates(e, calibCanvas);
+      const currX = coords.x; const currY = coords.y;
+      document.getElementById('canvas-coordinates').innerText = `x: ${currX}, y: ${currY}`;
+
+      if (canvasMode === 'draw' && isDrawingBox) { drawCurrentX = currX; drawCurrentY = currY; redrawCalibration(); return; }
+
+      if (draggingAnchor) {
+        calibrationData.anchors[draggingAnchor].x = Math.max(0, Math.min(calibCanvas.width, currX));
+        calibrationData.anchors[draggingAnchor].y = Math.max(0, Math.min(calibCanvas.height, currY));
+        redrawCalibration(); updateCalibrationStats(); syncAnchorManualFields(); return;
+      }
+
+      if (draggingBlock && selectedQuestionIndex > -1) {
+        const dx = currX - dragStartOffset.x; const dy = currY - dragStartOffset.y;
+        if (areAllGridsLinked()) {
+          calibrationData.questions.forEach((q, idx) => {
+            const initial = dragStartPos[idx];
+            q.labelX = initial.labelX + dx; q.labelY = initial.labelY + dy;
+            q.options.forEach((o, oIdx) => { o.x = initial.options[oIdx].x + dx; o.y = initial.options[oIdx].y + dy; });
+          });
+        } else {
+          const q = calibrationData.questions[selectedQuestionIndex];
+          const initial = dragStartPos.find(item => item.id === q.id);
+          if (initial) {
+            q.labelX = initial.labelX + dx; q.labelY = initial.labelY + dy;
+            q.options.forEach((o, oIdx) => { o.x = initial.options[oIdx].x + dx; o.y = initial.options[oIdx].y + dy; });
+          }
+        }
+        redrawCalibration(); updateManualAdjusterUI(); return;
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (canvasMode === 'draw' && isDrawingBox) { isDrawingBox = false; createQuestionFromDrawnBox(); return; }
+      draggingAnchor = null; draggingBlock = false;
+    });
+
+    function createQuestionFromDrawnBox() {
+      const xMin = Math.min(drawStartX, drawCurrentX); const xMax = Math.max(drawStartX, drawCurrentX);
+      const yMin = Math.min(drawStartY, drawCurrentY); const yMax = Math.max(drawStartY, drawCurrentY);
+      const width = xMax - xMin; const height = yMax - yMin;
+      if (width < 40 || height < 12) { redrawCalibration(); return; }
+
+      const startQ = parseInt(document.getElementById('grid-start-q').value) || (calibrationData.questions.length > 0 ? Math.max(...calibrationData.questions.filter(item => typeof item.id === 'number').map(q => q.id)) + 1 : 1);
+      const optsCount = parseInt(document.getElementById('grid-opts-count').value) || 5;
+      const labels = ['A', 'B', 'C', 'D', 'E', 'F'];
+      const labelWidth = Math.min(60, width * 0.2);
+      const bubbleAreaWidth = width - labelWidth;
+      const r = Math.min(16, Math.max(5, Math.round(height * 0.35)));
+      const boxW = Math.round(bubbleAreaWidth / optsCount * 0.85); const boxH = Math.round(height * 0.85);
+
+      const options = [];
+      for (let o = 0; o < optsCount; o++) {
+        options.push({ label: labels[o], x: Math.round(xMin + labelWidth + (o + 0.5) * (bubbleAreaWidth / optsCount)), y: Math.round((yMin + yMax) / 2), r: r, w: boxW, h: boxH, shape: globalBubbleShape });
+      }
+
+      const newQ = { id: startQ, labelX: xMin + 5, labelY: Math.round((yMin + yMax) / 2), options: options };
+      const existingIdx = calibrationData.questions.findIndex(q => q.id === startQ);
+      if (existingIdx > -1) calibrationData.questions[existingIdx] = newQ;
+      else calibrationData.questions.push(newQ);
+
+      calibrationData.questions.sort((a,b) => {
+        if (typeof a.id === 'number' && typeof b.id === 'number') return a.id - b.id;
+        return String(a.id).localeCompare(String(b.id));
+      });
+
+      document.getElementById('grid-start-q').value = startQ + 1;
+      setCanvasMode('select');
+      selectedQuestionIndex = calibrationData.questions.findIndex(q => q.id === startQ);
+      redrawCalibration(); updateCalibrationStats(); updateManualAdjusterUI();
+      showToast("Question Row Added", `Question ${startQ} created inside drawn box bounds.`, "success");
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (selectedQuestionIndex === -1 || activeStep !== 1) return;
+      const keys = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+      if (!keys.includes(e.key)) return;
+      e.preventDefault();
+      
+      let dx = 0, dy = 0;
+      if (e.key === "ArrowUp") dy = -1; if (e.key === "ArrowDown") dy = 1;
+      if (e.key === "ArrowLeft") dx = -1; if (e.key === "ArrowRight") dx = 1;
+      if (e.shiftKey) { dx *= 5; dy *= 5; }
+
+      if (areAllGridsLinked()) {
+        calibrationData.questions.forEach(q => {
+          q.labelX += dx; q.labelY += dy;
+          q.options.forEach(opt => { opt.x += dx; opt.y += dy; });
+        });
+      } else {
+        const q = calibrationData.questions[selectedQuestionIndex];
+        q.labelX += dx; q.labelY += dy;
+        q.options.forEach(opt => { opt.x += dx; opt.y += dy; });
+      }
+      redrawCalibration(); updateManualAdjusterUI();
+    });
+
+    // ----------------------------------------------------
+    // MANUAL PRECISION PANEL
+    // ----------------------------------------------------
+    function updateManualAdjusterUI() {
+      const emptyMsg = document.getElementById('precision-empty-msg');
+      const controls = document.getElementById('precision-controls');
+      const labelSpacing = document.getElementById('label-q-spacing');
+      const horizontalSpacingContainer = document.getElementById('horizontal-spacing-container');
+      const verticalSpacingContainer = document.getElementById('vertical-spacing-container');
+      const columnGapContainer = document.getElementById('column-gap-container');
+
+      if (selectedQuestionIndex === -1) {
+        if (emptyMsg) emptyMsg.classList.remove('hidden');
+        if (controls) controls.classList.add('hidden');
+        return;
+      }
+      if (emptyMsg) emptyMsg.classList.add('hidden');
+      if (controls) controls.classList.remove('hidden');
+
+      const q = calibrationData.questions[selectedQuestionIndex];
+      document.getElementById('precision-target-label').innerText = `Editing: ${q.id}`;
+      document.getElementById('manual-q-x').value = q.labelX;
+      document.getElementById('manual-q-y').value = q.options[0].y;
+      document.getElementById('manual-q-w').value = q.options[0].w || (q.options[0].r * 2);
+      document.getElementById('manual-q-h').value = q.options[0].h || (q.options[0].r * 2);
+
+      const isMetadata = (q.id === 'Class' || q.id === 'Class No.');
+      if (isMetadata) {
+        if (horizontalSpacingContainer) horizontalSpacingContainer.classList.add('hidden');
+        if (verticalSpacingContainer) verticalSpacingContainer.classList.remove('hidden');
+        if (columnGapContainer) columnGapContainer.classList.remove('hidden');
+
+        const splitIdx = q.id === 'Class' ? 6 : 10;
+        if (q.options.length > 1) document.getElementById('manual-q-v-spacing').value = q.options[1].y - q.options[0].y;
+        else document.getElementById('manual-q-v-spacing').value = 32;
+
+        if (q.options.length > splitIdx) document.getElementById('manual-q-col-gap').value = q.options[splitIdx].x - q.options[0].x;
+        else document.getElementById('manual-q-col-gap').value = 55;
+      } else {
+        if (horizontalSpacingContainer) horizontalSpacingContainer.classList.remove('hidden');
+        if (verticalSpacingContainer) verticalSpacingContainer.classList.add('hidden');
+        if (columnGapContainer) columnGapContainer.classList.add('hidden');
+
+        if (q.options.length > 1) document.getElementById('manual-q-spacing').value = q.options[1].x - q.options[0].x;
+        else document.getElementById('manual-q-spacing').value = 32;
+      }
+    }
+
+    function updateSelectedRowPrecision() {
+      if (selectedQuestionIndex === -1) return;
+      const q = calibrationData.questions[selectedQuestionIndex];
+      const newX = parseInt(document.getElementById('manual-q-x').value);
+      const newY = parseInt(document.getElementById('manual-q-y').value);
+      const newW = parseInt(document.getElementById('manual-q-w').value);
+      const newH = parseInt(document.getElementById('manual-q-h').value);
+      if (isNaN(newX) || isNaN(newY) || isNaN(newW) || isNaN(newH)) return;
+
+      const spacing = parseInt(document.getElementById('manual-q-spacing').value);
+      const deltaX = newX - q.labelX;
+      const deltaY = newY - q.options[0].y;
+
+      if (areAllGridsLinked()) {
+        calibrationData.questions.forEach(item => {
+          const isItemMetadata = (item.id === 'Class' || item.id === 'Class No.');
+          item.labelX += deltaX;
+          
+          if (isItemMetadata) {
+            const splitIdx = item.id === 'Class' ? 6 : 10;
+            const startY = item.options[0].y + deltaY;
+            const metaVScaling = (q.id === item.id) ? parseInt(document.getElementById('manual-q-v-spacing').value) : (item.options[1].y - item.options[0].y);
+            const metaColGapScaling = (q.id === item.id) ? parseInt(document.getElementById('manual-q-col-gap').value) : (item.options[splitIdx].x - item.options[0].x);
+            const safeVSpacing = isNaN(metaVScaling) || metaVScaling <= 0 ? 32 : metaVScaling;
+            const safeColGap = isNaN(metaColGapScaling) || metaColGapScaling <= 0 ? 55 : metaColGapScaling;
+
+            item.options.forEach((opt, idx) => {
+              opt.w = newW; opt.h = newH; opt.r = Math.round(Math.min(newW, newH) / 2);
+              if (idx < splitIdx) { opt.x = item.labelX + 60; opt.y = startY + (idx * safeVSpacing); } 
+              else { opt.x = item.labelX + 60 + safeColGap; opt.y = startY + ((idx - splitIdx) * safeVSpacing); }
+            });
+          } else {
+            const standardOptionSpacing = (q.id === item.id) ? spacing : (item.options.length > 1 ? item.options[1].x - item.options[0].x : 32);
+            const safeHSpacing = isNaN(standardOptionSpacing) || standardOptionSpacing <= 0 ? 32 : standardOptionSpacing;
+            item.options.forEach((opt, idx) => {
+              opt.y += deltaY; opt.w = newW; opt.h = newH; opt.r = Math.round(Math.min(newW, newH) / 2);
+              opt.x = (item.labelX + 60) + (idx * safeHSpacing);
+            });
+          }
+        });
+      } else {
+        const isMetadata = (q.id === 'Class' || q.id === 'Class No.');
+        q.labelX = newX;
+
+        if (isMetadata) {
+          const splitIdx = q.id === 'Class' ? 6 : 10;
+          const vSpacing = parseInt(document.getElementById('manual-q-v-spacing').value);
+          const colGap = parseInt(document.getElementById('manual-q-col-gap').value);
+          const safeVSpacing = isNaN(vSpacing) || vSpacing <= 0 ? 32 : vSpacing;
+          const safeColGap = isNaN(colGap) || colGap <= 0 ? 55 : colGap;
+
+          q.options.forEach((opt, idx) => {
+            opt.w = newW; opt.h = newH; opt.r = Math.round(Math.min(newW, newH) / 2);
+            if (idx < splitIdx) { opt.x = q.labelX + 60; opt.y = newY + (idx * safeVSpacing); } 
+            else { opt.x = q.labelX + 60 + safeColGap; opt.y = newY + ((idx - splitIdx) * safeVSpacing); }
+          });
+        } else {
+          const safeHSpacing = isNaN(spacing) || spacing <= 0 ? 32 : spacing;
+          q.options.forEach((opt, idx) => {
+            opt.y = newY; opt.w = newW; opt.h = newH; opt.r = Math.round(Math.min(newW, newH) / 2);
+            opt.x = (q.labelX + 60) + (idx * safeHSpacing);
+          });
+        }
+      }
+      redrawCalibration(); updateCalibrationStats(); updateManualAdjusterUI();
+    }
+
+    function adjustSelectedRadius(delta) {
+      if (selectedQuestionIndex === -1) { showToast("No Selection", "Please click on a question bubble before adjusting properties.", "warning"); return; }
+      if (areAllGridsLinked()) {
+        calibrationData.questions.forEach(q => {
+          q.options.forEach(o => {
+            o.w = Math.max(4, (o.w || (o.r * 2)) + delta * 2);
+            o.h = Math.max(4, (o.h || (o.r * 2)) + delta * 2);
+            o.r = Math.max(2, o.r + delta);
+          });
+        });
+      } else {
+        const q = calibrationData.questions[selectedQuestionIndex];
+        q.options.forEach(o => {
+          o.w = Math.max(4, (o.w || (o.r * 2)) + delta * 2);
+          o.h = Math.max(4, (o.h || (o.r * 2)) + delta * 2);
+          o.r = Math.max(2, o.r + delta);
+        });
+      }
+      redrawCalibration(); updateManualAdjusterUI();
+    }
+
+    function deleteSelectedQuestion() {
+      if (selectedQuestionIndex === -1) { showToast("No Selection", "Please select a row block to delete.", "warning"); return; }
+      calibrationData.questions.splice(selectedQuestionIndex, 1);
+      selectedQuestionIndex = -1;
+      redrawCalibration(); updateCalibrationStats(); updateManualAdjusterUI();
+      showToast("Question Removed", "The selected question row was deleted from configuration.", "info");
+    }
+
+    function exportJSONCalibration() {
+      const payload = {
+        meta: "OmniOMR Config Layout", version: "2.9",
+        targetSize: calibrationData.targetSize,
+        anchors: calibrationData.anchors, questions: calibrationData.questions
+      };
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `OMR_Calibration_Config.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click(); downloadAnchor.remove();
+      showToast("Config Exported", "Layout configuration JSON successfully exported.", "success");
+    }
+
+    function handleJSONImport(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const config = JSON.parse(event.target.result);
+          if (!config.anchors || !config.questions) { showToast("Invalid JSON", "Supplied configuration parameters are missing crucial calibration properties.", "error"); return; }
+          calibrationData.anchors = config.anchors;
+          calibrationData.questions = config.questions;
+          
+          // Force sort standard questions numerically so that internal data arrays stay in correct 1..45 order
+          calibrationData.questions.sort((a, b) => {
+            if (typeof a.id === 'number' && typeof b.id === 'number') return a.id - b.id;
+            return String(a.id).localeCompare(String(b.id));
+          });
+
+          if (config.targetSize) calibrationData.targetSize = config.targetSize;
+          
+          isConfigLoaded = true; // Lock in the imported anchors!
+          
+          // Immediately enable next step button and reveal the footer
+          document.getElementById('step-btn-2').removeAttribute('disabled');
+          const calibrationContinueFooter = document.getElementById('calibration-continue-footer');
+          if (calibrationContinueFooter) calibrationContinueFooter.classList.remove('hidden');
+
+          if (!rawTemplateImg) {
+            // Generate a blank canvas layout if user hasn't uploaded an image yet
+            rawTemplateImg = new Image();
+            rawTemplateImg.onload = () => {
+              calibCanvas.width = calibrationData.targetSize.width;
+              calibCanvas.height = calibrationData.targetSize.height;
+              const calibrationPlaceholder = document.getElementById('calibration-placeholder');
+              const calibrationWorkspace = document.getElementById('calibration-workspace');
+              if (calibrationPlaceholder) calibrationPlaceholder.classList.add('hidden');
+              if (calibrationWorkspace) calibrationWorkspace.classList.remove('hidden');
+              
+              setCanvasMode('select');
+              redrawCalibration(); updateCalibrationStats(); syncAnchorManualFields();
+              showToast("Config Imported", `Restored ${calibrationData.questions.length} questions. You can now proceed to Answer Key.`, "success");
+            };
+            const blankCanvas = document.createElement('canvas');
+            blankCanvas.width = calibrationData.targetSize.width || 1000;
+            blankCanvas.height = calibrationData.targetSize.height || 1414;
+            const bCtx = blankCanvas.getContext('2d');
+            bCtx.fillStyle = "#ffffff"; bCtx.fillRect(0, 0, blankCanvas.width, blankCanvas.height);
+            rawTemplateImg.src = blankCanvas.toDataURL();
+          } else {
+            // If an image was already uploaded, just update the stats/canvas
+            redrawCalibration(); updateCalibrationStats();
+            showToast("Config Imported", `Restored ${calibrationData.questions.length} question layout structures seamlessly.`, "success");
+          }
+        } catch(err) {
+          showToast("Import Failure", "Failed parsing configuration file.", "error");
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = ''; // Reset input to allow re-uploading same file
+    }
+
+    // Answer Key Mgmt
+    function buildAnswerKeyGrid() {
+      const container = document.getElementById('answer-key-container');
+      if (!container) return;
+      container.innerHTML = "";
+
+      // Enforce clean numeric sort on Answer Key view
+      const standardQuestions = calibrationData.questions
+        .filter(q => typeof q.id === 'number' && q.id <= gradingQuestionLimit)
+        .sort((a, b) => Number(a.id) - Number(b.id));
+
+      if (standardQuestions.length === 0) return;
+
+      standardQuestions.forEach(q => {
+        const row = document.createElement('div');
+        row.className = "flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition";
+        let labelSpan = document.createElement('span');
+        labelSpan.className = "font-bold text-slate-700 text-xs";
+        labelSpan.innerText = `Question ${q.id}`;
+        row.appendChild(labelSpan);
+
+        let selectContainer = document.createElement('div');
+        selectContainer.className = "flex space-x-1";
+
+        q.options.forEach(opt => {
+          const btn = document.createElement('button');
+          btn.id = `ans-btn-${q.id}-${opt.label}`;
+          btn.className = "w-7 h-7 text-xs font-semibold rounded-full border border-slate-200 bg-white hover:bg-slate-50 transition";
+          btn.innerText = opt.label;
+          btn.onclick = () => { selectAnswerKey(q.id, opt.label); };
+          selectContainer.appendChild(btn);
+        });
+
+        row.appendChild(selectContainer);
+        container.appendChild(row);
+
+        if (answerKey[q.id]) {
+          const activeBtn = selectContainer.querySelector(`#ans-btn-${q.id}-${answerKey[q.id]}`);
+          if (activeBtn) {
+            activeBtn.classList.remove('bg-white', 'hover:bg-slate-50');
+            activeBtn.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600');
+          }
+        }
+      });
+      const gradeBtn = document.getElementById('step-btn-3');
+      if (gradeBtn) gradeBtn.removeAttribute('disabled');
+    }
+
+    function selectAnswerKey(qNum, label) {
+      const q = calibrationData.questions.find(item => item.id === qNum);
+      if (!q) return;
+
+      if (answerKey[qNum]) {
+        const prevBtn = document.getElementById(`ans-btn-${qNum}-${answerKey[qNum]}`);
+        if (prevBtn) {
+          prevBtn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600');
+          prevBtn.classList.add('bg-white', 'hover:bg-slate-50');
+        }
+      }
+
+      if (answerKey[qNum] === label) {
+        delete answerKey[qNum];
+      } else {
+        answerKey[qNum] = label;
+        const newBtn = document.getElementById(`ans-btn-${qNum}-${label}`);
+        if (newBtn) {
+          newBtn.classList.remove('bg-white', 'hover:bg-slate-50');
+          newBtn.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600');
+        }
+      }
+    }
+
+    function autofillAnswerKey(pattern) {
+      const standardQuestions = calibrationData.questions
+        .filter(q => typeof q.id === 'number' && q.id <= gradingQuestionLimit)
+        .sort((a, b) => Number(a.id) - Number(b.id));
+
+      standardQuestions.forEach(q => {
+        if (pattern === 'random') {
+          const randOptIdx = Math.floor(Math.random() * q.options.length);
+          answerKey[q.id] = q.options[randOptIdx].label;
+        } else {
+          const exists = q.options.some(opt => opt.label === pattern);
+          if (exists) answerKey[q.id] = pattern;
+        }
+      });
+      buildAnswerKeyGrid();
+      showToast("Answers Set", `Answers populated with ${pattern} patterns successfully.`, "info");
+    }
+
+    function clearAnswerKey() {
+      answerKey = {};
+      buildAnswerKeyGrid();
+      showToast("Key Cleared", "Answer settings reset.", "warning");
+    }
+
+    function parseBulkAnswers() {
+      const text = document.getElementById('bulk-answers-input').value.trim();
+      if (!text) { showToast("Empty Input", "Please enter or paste some answer key text first.", "warning"); return; }
+      
+      const qMap = {};
+      const regex = /(?:Q|q)?(?:uestion)?\s*(\d+)\s*[\s.:\)-]+\s*([A-F])/g;
+      let match; let foundPairs = false;
+
+      while ((match = regex.exec(text)) !== null) {
+        const qNum = parseInt(match[1]);
+        const ans = match[2].toUpperCase();
+        qMap[qNum] = ans; foundPairs = true;
+      }
+
+      const standardQ = calibrationData.questions
+        .filter(q => typeof q.id === 'number' && q.id <= gradingQuestionLimit)
+        .sort((a, b) => Number(a.id) - Number(b.id));
+
+      if (foundPairs) {
+        let count = 0;
+        standardQ.forEach(q => {
+          if (qMap[q.id]) {
+            const exists = q.options.some(opt => opt.label === qMap[q.id]);
+            if (exists) { answerKey[q.id] = qMap[q.id]; count++; }
+          }
+        });
+        buildAnswerKeyGrid();
+        showToast("Answers Parsed Successfully", `Matched and applied ${count} answers using numeric pairing.`, "success");
+      } else {
+        const words = text.split(/[\s,]+/);
+        const answersSequence = [];
+        words.forEach(word => {
+          const cleanWord = word.trim().toUpperCase();
+          if (cleanWord.length === 1 && /^[A-F]$/.test(cleanWord)) answersSequence.push(cleanWord);
+          else if (/^[A-F]+$/.test(cleanWord)) cleanWord.split('').forEach(char => answersSequence.push(char));
+        });
+
+        if (answersSequence.length > 0) {
+          let count = 0;
+          standardQ.forEach((q, idx) => {
+            if (idx < answersSequence.length) {
+              const ans = answersSequence[idx];
+              const exists = q.options.some(opt => opt.label === ans);
+              if (exists) { answerKey[q.id] = ans; count++; }
+            }
+          });
+          buildAnswerKeyGrid();
+          showToast("Answers Mapped Sequentially", `Applied ${count} consecutive answers directly to your question slots.`, "success");
+        } else {
+          showToast("Parsing Failed", "Could not recognize any valid options (A-F) in your text. Example: 'A B C D E' or '1.A, 2.B'", "error");
+        }
+      }
+    }
+
+    // Phase D: Grading Pipeline
+    function handleStudentScans(e) {
+      const files = Array.from(e.target.files);
+      if (files.length === 0) return;
+      processStudentScans(files);
+    }
+
+    async function processStudentScans(files) {
+      if (!cvLoaded) { showToast("OpenCV Busy", "Please wait until the Computer Vision engine compiles.", "error"); return; }
+      const loader = document.getElementById('processing-loader');
+      if (loader) loader.classList.remove('hidden');
+      
+      const progressLabel = document.getElementById('loader-progress');
+      const msgLabel = document.getElementById('loader-message');
+
+      for (let index = 0; index < files.length; index++) {
+        const file = files[index];
+        if (msgLabel) msgLabel.innerText = `Warping and grading: ${file.name}`;
+        if (progressLabel) progressLabel.innerText = `${Math.round((index / files.length) * 100)}%`;
+
+        try { await processSingleScan(file); } 
+        catch (err) { console.error(err); showToast("Grading Error", `Failed processing file format: ${file.name}`, "error"); }
+      }
+
+      if (loader) loader.classList.add('hidden');
+      showToast("Batch grading done!", `Finished processing ${files.length} student files.`, "success");
+      updateGradedTable();
+    }
+
+    function processSingleScan(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            const result = runOMRGradingPipeline(img, file.name);
+            if (result) gradedRecords.push(result);
+            resolve();
+          };
+          img.onerror = reject;
+          img.src = event.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function runOMRGradingPipeline(img, filename, forcedAnchors = null) {
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCanvas.width = img.width; tempCanvas.height = img.height;
+      tempCtx.drawImage(img, 0, 0);
+
+      let src = cv.imread(tempCanvas);
+      let studentAnchors = forcedAnchors || findAnchorsRobustly(src);
+      
+      if (!studentAnchors) {
+        showToast("Alignment Warning", `Could not auto-detect corners for ${filename}. Please click 'Fix Alignment' to set manually.`, "warning");
+        studentAnchors = {
+          tl: { x: Math.round(img.width * 0.05), y: Math.round(img.height * 0.05) },
+          tr: { x: Math.round(img.width * 0.95), y: Math.round(img.height * 0.05) },
+          bl: { x: Math.round(img.width * 0.05), y: Math.round(img.height * 0.95) },
+          br: { x: Math.round(img.width * 0.95), y: Math.round(img.height * 0.95) }
+        };
+      }
+
+      let warpedMat = new cv.Mat();
+      let targetW = calibrationData.targetSize.width;
+      let targetH = calibrationData.targetSize.height;
+      let dsize = new cv.Size(targetW, targetH);
+
+      let srcPoints = cv.matFromArray(4, 1, cv.CV_32FC2, [
+        studentAnchors.tl.x, studentAnchors.tl.y,
+        studentAnchors.tr.x, studentAnchors.tr.y,
+        studentAnchors.bl.x, studentAnchors.bl.y,
+        studentAnchors.br.x, studentAnchors.br.y
+      ]);
+
+      let dstPoints = cv.matFromArray(4, 1, cv.CV_32FC2, [
+        calibrationData.anchors.tl.x, calibrationData.anchors.tl.y,
+        calibrationData.anchors.tr.x, calibrationData.anchors.tr.y,
+        calibrationData.anchors.bl.x, calibrationData.anchors.bl.y,
+        calibrationData.anchors.br.x, calibrationData.anchors.br.y
+      ]);
+
+      let M = cv.getPerspectiveTransform(srcPoints, dstPoints);
+      cv.warpPerspective(src, warpedMat, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar(255, 255, 255, 255));
+
+      const alignedCanvas = document.createElement('canvas');
+      alignedCanvas.width = targetW; alignedCanvas.height = targetH;
+      cv.imshow(alignedCanvas, warpedMat);
+
+      const gradingReport = evaluateOMRSensors(warpedMat, alignedCanvas);
+
+      src.delete(); warpedMat.delete(); srcPoints.delete(); dstPoints.delete(); M.delete();
+
+      return {
+        id: crypto.randomUUID(),
+        studentId: filename.split('.')[0],
+        correctCount: gradingReport.correct,
+        totalCount: calibrationData.questions.filter(q => typeof q.id === 'number' && q.id <= gradingQuestionLimit).length,
+        studentClass: gradingReport.class,
+        studentClassNum: gradingReport.classNum,
+        answers: gradingReport.answers,
+        detailedAnswers: gradingReport.detailedAnswers,
+        imageURL: alignedCanvas.toDataURL('image/jpeg', 0.8),
+        rawImageSrc: img.src,
+        studentAnchors: studentAnchors
+      };
+    }
+
+    function evaluateOMRSensors(warpedMat, targetCanvas) {
+      const ctx = targetCanvas.getContext('2d');
+      let correct = 0;
+      let answers = {};
+      let detailedAnswers = {};
+      let parsedClass = "?";
+      let parsedClassNum = "??";
+
+      calibrationData.questions.forEach(q => {
+        if (typeof q.id === 'number' && q.id > gradingQuestionLimit) return;
+        
+        let evaluatedOption = null;
+        let bubbleResults = [];
+
+        q.options.forEach(opt => {
+          let metric = checkBubbleIntensity(warpedMat, opt);
+          bubbleResults.push({
+            label: opt.label, fillRatio: metric.fillRatio, isFilled: metric.isFilled,
+            x: opt.x, y: opt.y, r: opt.r, w: opt.w || (opt.r * 2), h: opt.h || (opt.r * 2), shape: opt.shape || 'circle'
+          });
+        });
+
+        if (q.id === 'Class') {
+          const col1 = [...bubbleResults.slice(0, 6)].sort((a, b) => b.fillRatio - a.fillRatio);
+          const col2 = [...bubbleResults.slice(6, 11)].sort((a, b) => b.fillRatio - a.fillRatio);
+          
+          const digit = (col1[0].isFilled || (col1[0].fillRatio > 20 && col1[0].fillRatio - col1[1].fillRatio > 15)) ? col1[0].label : "?";
+          const letter = (col2[0].isFilled || (col2[0].fillRatio > 20 && col2[0].fillRatio - col2[1].fillRatio > 15)) ? col2[0].label : "?";
+          parsedClass = `${digit}${letter}`;
+          answers[q.id] = parsedClass;
+        } else if (q.id === 'Class No.') {
+          const col1 = [...bubbleResults.slice(0, 10)].sort((a, b) => b.fillRatio - a.fillRatio);
+          const col2 = [...bubbleResults.slice(10, 20)].sort((a, b) => b.fillRatio - a.fillRatio);
+          
+          const d1 = (col1[0].isFilled || (col1[0].fillRatio > 20 && col1[0].fillRatio - col1[1].fillRatio > 15)) ? col1[0].label : "?";
+          const d2 = (col2[0].isFilled || (col2[0].fillRatio > 20 && col2[0].fillRatio - col2[1].fillRatio > 15)) ? col2[0].label : "?";
+          parsedClassNum = `${d1}${d2}`;
+          answers[q.id] = parsedClassNum;
+        } else {
+          const activeFilled = bubbleResults.filter(b => b.isFilled);
+          const runnerUp = [...bubbleResults].sort((a,b) => b.fillRatio - a.fillRatio);
+
+          if (activeFilled.length === 1) {
+            evaluatedOption = activeFilled[0].label;
+          } else if (activeFilled.length > 1) {
+            // Relative comparison to eliminate faint erasure noise/smudges
+            if (runnerUp[0].fillRatio - runnerUp[1].fillRatio >= 15) {
+              evaluatedOption = runnerUp[0].label;
+              bubbleResults.forEach(b => { if (b.label !== evaluatedOption) b.isFilled = false; });
+            } else {
+              evaluatedOption = "INVALID_MULTIPLE";
+            }
+          } else {
+            if (runnerUp[0].fillRatio > 20 && (runnerUp[0].fillRatio - runnerUp[1].fillRatio) > 15) {
+              evaluatedOption = runnerUp[0].label;
+              const topBub = bubbleResults.find(b => b.label === evaluatedOption);
+              if(topBub) topBub.isFilled = true;
+            } else {
+              evaluatedOption = "BLANK";
+            }
+          }
+
+          answers[q.id] = evaluatedOption;
+          const correctKey = answerKey[q.id];
+          const isCorrect = (evaluatedOption === correctKey);
+          if (isCorrect) correct++;
+        }
+
+        drawVisualOMRFeedback(ctx, q, answers[q.id] || evaluatedOption, answerKey[q.id], (answers[q.id] || evaluatedOption) === answerKey[q.id], bubbleResults);
+
+        detailedAnswers[q.id] = {
+          qId: q.id, chosen: answers[q.id] || evaluatedOption, expected: answerKey[q.id] || "",
+          isCorrect: (answers[q.id] || evaluatedOption) === answerKey[q.id], bubbles: bubbleResults
+        };
+      });
+
+      return { correct, class: parsedClass, classNum: parsedClassNum, answers, detailedAnswers };
+    }
+
+    function checkBubbleIntensity(warpedMat, opt) {
+      const r = opt.r;
+      const x = Math.round(opt.x); const y = Math.round(opt.y);
+      const isRect = opt.shape === 'rectangle';
+      const boxW = opt.w || (r * 2); const boxH = opt.h || (r * 2);
+
+      let rect = new cv.Rect(Math.max(0, x - Math.round(boxW/2)), Math.max(0, y - Math.round(boxH/2)), boxW, boxH);
+      let roi = warpedMat.roi(rect);
+      
+      let gray = new cv.Mat();
+      cv.cvtColor(roi, gray, cv.COLOR_RGBA2GRAY, 0);
+
+      let mask = cv.Mat.zeros(gray.rows, gray.cols, cv.CV_8UC1);
+      
+      if (isRect) {
+        // High Accuracy mask: 25% inset ensures a large enough central core reading area to avoid reading white space
+        const insetX = Math.max(2, Math.round(boxW * 0.25));
+        const insetY = Math.max(2, Math.round(boxH * 0.25));
+        if (gray.cols - insetX * 2 > 0 && gray.rows - insetY * 2 > 0) {
+            let innerRect = new cv.Rect(insetX, insetY, gray.cols - insetX * 2, gray.rows - insetY * 2);
+            let maskRoi = mask.roi(innerRect);
+            maskRoi.setTo(new cv.Scalar(255));
+            maskRoi.delete();
+        }
+      } else {
+        cv.circle(mask, new cv.Point(r, r), Math.max(2, r - 3), new cv.Scalar(255), -1);
+      }
+
+      let meanScalar = cv.mean(gray, mask);
+      let darkness = 255 - meanScalar[0]; 
+      let fillRatio = Math.max(0, Math.min(100, (darkness / 140) * 100)); // slightly more sensitive to grey graphite
+
+      gray.delete(); mask.delete(); roi.delete();
+
+      return { fillRatio: fillRatio, isFilled: fillRatio >= sensitivityValue };
+    }
+
+    function drawVisualOMRFeedback(ctx, question, chosenOpt, correctOpt, isCorrect, bubbleResults) {
+      const isMetadata = typeof question.id !== 'number';
+
+      bubbleResults.forEach(bubble => {
+        const isRect = bubble.shape === 'rectangle';
+        ctx.beginPath();
+        
+        const boxW = bubble.w || (bubble.r * 2); const boxH = bubble.h || (bubble.r * 2);
+
+        if (isRect) { ctx.roundRect(bubble.x - boxW/2 - 2, bubble.y - boxH/2 - 2, boxW + 4, boxH + 4, [4]); } 
+        else { ctx.arc(bubble.x, bubble.y, bubble.r + 3, 0, 2 * Math.PI); }
+        
+        if (!isMetadata && bubble.label === correctOpt) {
+          ctx.strokeStyle = "#10b981"; ctx.lineWidth = 3; ctx.stroke();
+          ctx.fillStyle = "rgba(16, 185, 129, 0.08)"; ctx.fill();
+        } else if (bubble.isFilled) {
+          ctx.strokeStyle = isMetadata ? "#3b82f6" : (chosenOpt === correctOpt ? "#10b981" : "#f43f5e");
+          ctx.lineWidth = 3; ctx.stroke();
+          ctx.fillStyle = isMetadata ? "rgba(59, 130, 246, 0.15)" : "rgba(244, 63, 94, 0.08)"; ctx.fill();
+        } else {
+          ctx.strokeStyle = "rgba(148, 163, 184, 0.25)"; ctx.lineWidth = 1; ctx.stroke();
+        }
+      });
+    }
+
+    // Results Lists & UI Handlers
+    function updateGradedTable() {
+      const tbody = document.getElementById('graded-tbody');
+      const emptyRow = document.getElementById('empty-table-row');
+      if (!tbody) return;
+      
+      const rows = tbody.querySelectorAll('.graded-row');
+      rows.forEach(r => r.remove());
+
+      const countSpan = document.getElementById('graded-count');
+      if (countSpan) countSpan.innerText = gradedRecords.length;
+
+      if (gradedRecords.length === 0) {
+        if (emptyRow) emptyRow.classList.remove('hidden');
+        return;
+      }
+      if (emptyRow) emptyRow.classList.add('hidden');
+
+      const standardQ = calibrationData.questions.filter(q => typeof q.id === 'number' && q.id <= gradingQuestionLimit).sort((a, b) => a.id - b.id);
+
+      gradedRecords.forEach(rec => {
+        const tr = document.createElement('tr');
+        tr.className = "graded-row hover:bg-slate-50 border-b border-slate-100 transition text-slate-700";
+
+        const scorePercent = Math.round((rec.correctCount / rec.totalCount) * 100) || 0;
+
+        let responsesString = "";
+        standardQ.forEach(q => {
+          const ansVal = rec.answers[q.id];
+          if (ansVal === "BLANK") responsesString += `<span class="bg-slate-100 px-1.5 py-0.5 rounded text-[9px] font-bold text-slate-400" title="Q${q.id}: Blank">?</span> `;
+          else if (ansVal === "INVALID_MULTIPLE") responsesString += `<span class="bg-amber-100 px-1.5 py-0.5 rounded text-[9px] font-bold text-amber-600" title="Q${q.id}: Invalid Multiple">X</span> `;
+          else if (ansVal === answerKey[q.id]) responsesString += `<span class="bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded text-[10px] font-bold" title="Q${q.id}: Correct">${ansVal}</span> `;
+          else responsesString += `<span class="bg-rose-100 text-rose-800 px-1.5 py-0.5 rounded text-[10px] font-bold" title="Q${q.id}: Incorrect">${ansVal}</span> `;
+        });
+
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-bold text-slate-900">${rec.studentId}</td>
+          <td class="py-3 px-4 font-medium text-slate-600"><span class="bg-indigo-50 border border-indigo-100 rounded px-2 py-0.5">${rec.studentClass || "—"}</span> <span class="bg-indigo-50 border border-indigo-100 rounded px-2 py-0.5">No.${rec.studentClassNum || "—"}</span></td>
+          <td class="py-3 px-4 font-semibold text-indigo-600">${rec.correctCount} / ${rec.totalCount}</td>
+          <td class="py-3 px-4 font-bold ${scorePercent >= 50 ? 'text-emerald-600' : 'text-rose-600'}">${scorePercent}%</td>
+          <td class="py-3 px-4 flex flex-wrap gap-1 max-w-[340px] items-center">${responsesString}</td>
+          <td class="py-3 px-4 text-right">
+            <button onclick="viewDiagnostic('${rec.id}')" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-white font-medium rounded-lg text-xxs transition shadow-xs flex items-center gap-1 inline-flex">
+              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Review Map
+            </button>
+            <button onclick="openAlignmentModal('${rec.id}')" class="mt-1 px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 font-medium rounded-lg text-xxs transition shadow-xs flex items-center gap-1 border border-amber-200 inline-flex">
+              <i data-lucide="move" class="w-3.5 h-3.5"></i> Fix Alignment
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      lucide.createIcons();
+    }
+
+    function viewDiagnostic(recordId) {
+      const rec = gradedRecords.find(r => r.id === recordId);
+      if (!rec) return;
+
+      document.getElementById('modal-student-name').innerText = `Diagnostic review: ${rec.studentId}`;
+      document.getElementById('modal-student-score').innerText = `${rec.correctCount} / ${rec.totalCount} Correct`;
+
+      document.getElementById('diag-canvas').classList.remove('hidden');
+      document.getElementById('align-canvas').classList.add('hidden');
+      document.getElementById('realign-actions').classList.add('hidden');
+      document.getElementById('realign-helper-text').classList.add('hidden');
+      document.getElementById('btn-toggle-realign').classList.remove('hidden');
+      document.getElementById('canvas-header-title').innerText = "Rectified Results View";
+      isRealignMode = false;
+      activeAlignRecordId = recordId;
+
+      const diagCanvas = document.getElementById('diag-canvas');
+      const diagCtx = diagCanvas.getContext('2d');
+
+      const modalImg = new Image();
+      modalImg.onload = () => {
+        diagCanvas.width = modalImg.width; diagCanvas.height = modalImg.height;
+        diagCtx.drawImage(modalImg, 0, 0);
+        resetDiagZoom(); 
+      };
+      modalImg.src = rec.imageURL;
+
+      const metricContainer = document.getElementById('modal-metric-list');
+      metricContainer.innerHTML = "";
+
+      // Ensure questions are sorted numerically for overrides preview list
+      const sortedQuestions = calibrationData.questions.slice().sort((a,b) => {
+        if (typeof a.id === 'number' && typeof b.id === 'number') return Number(a.id) - Number(b.id);
+        return String(a.id).localeCompare(String(b.id));
+      });
+
+      sortedQuestions.forEach(q => {
+        if (typeof q.id === 'number' && q.id > gradingQuestionLimit) return;
+        
+        const detail = rec.detailedAnswers[q.id];
+        const card = document.createElement('div');
+        card.className = `p-3 rounded-xl border ${detail.isCorrect || typeof q.id !== 'number' ? 'bg-emerald-50/50 border-emerald-100' : 'bg-rose-50/50 border-rose-100'} space-y-1.5`;
+
+        let optionMenu = `<select onchange="overrideResponse('${rec.id}', '${q.id}', this.value)" class="bg-white border border-slate-200 rounded px-2 py-0.5 text-xxs font-semibold focus:outline-indigo-500">`;
+        
+        let overrideChoices = [];
+        if (q.id === 'Class') overrideChoices = ["?", ...getAlphaNumericClassList()];
+        else if (q.id === 'Class No.') overrideChoices = ["??", ...getNumericStringClassNumList()];
+        else overrideChoices = ["BLANK", "INVALID_MULTIPLE", ...q.options.map(o => o.label)];
+
+        overrideChoices.forEach(choice => {
+          const selectedAttr = (choice === detail.chosen) ? "selected" : "";
+          optionMenu += `<option value="${choice}" ${selectedAttr}>${choice}</option>`;
+        });
+        optionMenu += `</select>`;
+
+        let bubbleBars = "";
+        detail.bubbles.forEach(b => {
+          bubbleBars += `
+            <div class="space-y-0.5 text-xxs">
+              <div class="flex justify-between font-mono">
+                <span class="font-bold flex items-center gap-1">
+                  <span class="inline-block w-2.5 h-2.5 rounded-full border border-slate-300 text-center leading-none text-[8px] bg-white ${b.isFilled ? 'bg-indigo-600 border-indigo-600 text-white font-black' : ''}">${b.label}</span>
+                </span>
+                <span class="${b.isFilled ? 'text-slate-800 font-bold' : 'text-slate-400'}">${Math.round(b.fillRatio)}% fill</span>
+              </div>
+              <div class="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+                <div class="${b.isFilled ? 'bg-indigo-600' : 'bg-slate-300'} h-full" style="width: ${Math.min(100, b.fillRatio)}%"></div>
+              </div>
+            </div>
+          `;
+        });
+
+        card.innerHTML = `
+          <div class="flex justify-between items-center text-xs">
+            <span class="font-bold text-slate-800">${typeof q.id === 'number' ? `Question ${q.id}` : q.id}</span>
+            <div class="flex items-center space-x-2">
+              <span class="text-[10px] text-slate-400">Override:</span>
+              ${optionMenu}
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+            ${bubbleBars}
+          </div>
+        `;
+        metricContainer.appendChild(card);
+      });
+
+      const modal = document.getElementById('diag-modal');
+      modal.classList.remove('hidden');
+      setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        modal.querySelector('.transform').classList.remove('scale-95');
+      }, 50);
+    }
+
+    function openAlignmentModal(recordId) {
+      viewDiagnostic(recordId);
+      setTimeout(() => { toggleRealignmentMode(); }, 100);
+    }
+
+    function toggleRealignmentMode() {
+      isRealignMode = !isRealignMode;
+      const rec = gradedRecords.find(r => r.id === activeAlignRecordId);
+      if(!rec) return;
+
+      if (isRealignMode) {
+        document.getElementById('diag-canvas').classList.add('hidden');
+        document.getElementById('align-canvas').classList.remove('hidden');
+        document.getElementById('realign-actions').classList.remove('hidden');
+        document.getElementById('realign-helper-text').classList.remove('hidden');
+        document.getElementById('btn-toggle-realign').classList.add('hidden');
+        document.getElementById('canvas-header-title').innerText = "Manual Anchor Setup";
+
+        alignRawImg = new Image();
+        alignRawImg.onload = () => {
+          alignCanvas.width = alignRawImg.width; alignCanvas.height = alignRawImg.height;
+          activeAlignAnchors = JSON.parse(JSON.stringify(rec.studentAnchors)); 
+          drawAlignCanvas();
+        };
+        alignRawImg.src = rec.rawImageSrc;
+
+      } else {
+        document.getElementById('diag-canvas').classList.remove('hidden');
+        document.getElementById('align-canvas').classList.add('hidden');
+        document.getElementById('realign-actions').classList.add('hidden');
+        document.getElementById('realign-helper-text').classList.add('hidden');
+        document.getElementById('btn-toggle-realign').classList.remove('hidden');
+        document.getElementById('canvas-header-title').innerText = "Rectified Results View";
+      }
+    }
+
+    function drawAlignCanvas() {
+      if(!alignRawImg) return;
+      alignCtx.clearRect(0, 0, alignCanvas.width, alignCanvas.height);
+      alignCtx.drawImage(alignRawImg, 0, 0, alignCanvas.width, alignCanvas.height);
+
+      // Projects precise layout boxes onto the unrectified/skewed image to easily trace alignment matches
+      if (cvLoaded && activeAlignAnchors) {
+        try {
+          let srcPoints = cv.matFromArray(4, 1, cv.CV_32FC2, [
+            activeAlignAnchors.tl.x, activeAlignAnchors.tl.y,
+            activeAlignAnchors.tr.x, activeAlignAnchors.tr.y,
+            activeAlignAnchors.bl.x, activeAlignAnchors.bl.y,
+            activeAlignAnchors.br.x, activeAlignAnchors.br.y
+          ]);
+          let dstPoints = cv.matFromArray(4, 1, cv.CV_32FC2, [
+            calibrationData.anchors.tl.x, calibrationData.anchors.tl.y,
+            calibrationData.anchors.tr.x, calibrationData.anchors.tr.y,
+            calibrationData.anchors.bl.x, calibrationData.anchors.bl.y,
+            calibrationData.anchors.br.x, calibrationData.anchors.br.y
+          ]);
+          let M_inv = cv.getPerspectiveTransform(dstPoints, srcPoints);
+          
+          let m = [];
+          for (let i = 0; i < 9; i++) {
+            m.push(M_inv.doubleAt(Math.floor(i / 3), i % 3));
+          }
+          
+          srcPoints.delete(); dstPoints.delete(); M_inv.delete();
+
+          calibrationData.questions.forEach(q => {
+            if (typeof q.id === 'number' && q.id > gradingQuestionLimit) return;
+            
+            q.options.forEach(opt => {
+              let w = m[6] * opt.x + m[7] * opt.y + m[8];
+              let rawX = (m[0] * opt.x + m[1] * opt.y + m[2]) / w;
+              let rawY = (m[3] * opt.x + m[4] * opt.y + m[5]) / w;
+
+              alignCtx.strokeStyle = "rgba(79, 70, 229, 0.4)";
+              alignCtx.lineWidth = 1.5;
+              
+              const boxW = opt.w || (opt.r * 2);
+              const boxH = opt.h || (opt.r * 2);
+              const shape = opt.shape || 'circle';
+
+              if (shape === 'rectangle') {
+                alignCtx.strokeRect(rawX - boxW/2, rawY - boxH/2, boxW, boxH);
+              } else {
+                alignCtx.beginPath();
+                alignCtx.arc(rawX, rawY, opt.r, 0, 2 * Math.PI);
+                alignCtx.stroke();
+              }
+            });
+          });
+        } catch (e) {
+          console.error("Failed projecting OMR bounds:", e);
+        }
+      }
+
+      const drawDragAnchor = (p, color, label) => {
+        const size = 60; const half = size / 2;
+        alignCtx.fillStyle = "rgba(255, 255, 255, 0.5)"; alignCtx.fillRect(p.x - half, p.y - half, size, size);
+        alignCtx.strokeStyle = color; alignCtx.lineWidth = 4; alignCtx.strokeRect(p.x - half, p.y - half, size, size);
+        
+        alignCtx.beginPath();
+        alignCtx.moveTo(p.x - 10, p.y); alignCtx.lineTo(p.x + 10, p.y);
+        alignCtx.moveTo(p.x, p.y - 10); alignCtx.lineTo(p.x, p.y + 10);
+        alignCtx.strokeStyle = color; alignCtx.lineWidth = 2; alignCtx.stroke();
+        
+        alignCtx.font = "bold 16px Inter"; alignCtx.fillStyle = "#1e293b"; alignCtx.textAlign = "center";
+        alignCtx.fillText(label, p.x, p.y - half - 10);
+      };
+
+      drawDragAnchor(activeAlignAnchors.tl, "#f43f5e", "TL"); drawDragAnchor(activeAlignAnchors.tr, "#3b82f6", "TR");
+      drawDragAnchor(activeAlignAnchors.bl, "#10b981", "BL"); drawDragAnchor(activeAlignAnchors.br, "#f59e0b", "BR");
+    }
+
+    alignCanvas.addEventListener('mousedown', (e) => {
+      if(!isRealignMode) return;
+      const coords = getCanvasCoordinates(e, alignCanvas);
+      const clickX = coords.x; const clickY = coords.y;
+
+      const r = 40; 
+      let grabbed = false;
+      if (dist(clickX, clickY, activeAlignAnchors.tl.x, activeAlignAnchors.tl.y) < r) { alignDraggingAnchor = 'tl'; grabbed = true; }
+      else if (dist(clickX, clickY, activeAlignAnchors.tr.x, activeAlignAnchors.tr.y) < r) { alignDraggingAnchor = 'tr'; grabbed = true; }
+      else if (dist(clickX, clickY, activeAlignAnchors.bl.x, activeAlignAnchors.bl.y) < r) { alignDraggingAnchor = 'bl'; grabbed = true; }
+      else if (dist(clickX, clickY, activeAlignAnchors.br.x, activeAlignAnchors.br.y) < r) { alignDraggingAnchor = 'br'; grabbed = true; }
+      
+      if (grabbed) {
+         e.stopPropagation(); // Explicitly prevent canvas pan events
+      }
+    });
+
+    alignCanvas.addEventListener('mousemove', (e) => {
+      if(!isRealignMode || !alignDraggingAnchor) return;
+      const coords = getCanvasCoordinates(e, alignCanvas);
+      const currX = coords.x; const currY = coords.y;
+
+      activeAlignAnchors[alignDraggingAnchor].x = Math.max(0, Math.min(alignCanvas.width, currX));
+      activeAlignAnchors[alignDraggingAnchor].y = Math.max(0, Math.min(alignCanvas.height, currY));
+      drawAlignCanvas();
+    });
+
+    window.addEventListener('mouseup', () => { alignDraggingAnchor = null; });
+
+    function executeRealignment() {
+      const recIndex = gradedRecords.findIndex(r => r.id === activeAlignRecordId);
+      if (recIndex === -1 || !alignRawImg) return;
+      
+      const rec = gradedRecords[recIndex];
+      showToast("Re-Warping...", "Applying new perspective transform...", "info");
+
+      setTimeout(() => {
+        try {
+          const newResult = runOMRGradingPipeline(alignRawImg, rec.studentId + " (Manual)", activeAlignAnchors);
+          gradedRecords[recIndex] = newResult;
+          updateGradedTable();
+          viewDiagnostic(newResult.id);
+          showToast("Alignment Fixed", "Scan successfully aligned and regraded using explicit manual anchors.", "success");
+        } catch(e) {
+          showToast("Error", "Failed applying perspective transform.", "error");
+        }
+      }, 100);
+    }
+
+    function overrideResponse(recordId, questionId, overriddenValue) {
+      const rec = gradedRecords.find(r => r.id === recordId);
+      if (!rec) return;
+
+      rec.answers[questionId] = overriddenValue;
+      rec.detailedAnswers[questionId].chosen = overriddenValue;
+
+      if (questionId === 'Class') {
+        rec.studentClass = overriddenValue;
+      } else if (questionId === 'Class No.') {
+        rec.studentClassNum = overriddenValue;
+      }
+
+      let correct = 0;
+      const standardQ = calibrationData.questions.filter(q => typeof q.id === 'number' && q.id <= gradingQuestionLimit).sort((a,b) => Number(a.id) - Number(b.id));
+
+      standardQ.forEach(q => {
+        const correctKey = answerKey[q.id];
+        const studentChosen = rec.answers[q.id];
+        const matches = (studentChosen === correctKey);
+        rec.detailedAnswers[q.id].isCorrect = matches;
+        if (matches) correct++;
+      });
+
+      rec.correctCount = correct;
+      document.getElementById('modal-student-score').innerText = `${rec.correctCount} / ${rec.totalCount} Correct`;
+      
+      updateGradedTable();
+      showToast("Overridden successfully", `Synchronized manual overrides for ${questionId} dynamically.`, "success");
+    }
+
+    function getAlphaNumericClassList() {
+      const arr = [];
+      for (let i = 1; i <= 6; i++) { ['A', 'B', 'C', 'D', 'E'].forEach(l => arr.push(`${i}${l}`)); }
+      return arr;
+    }
+
+    function getNumericStringClassNumList() {
+      const arr = [];
+      for (let i = 1; i <= 99; i++) { arr.push(String(i).padStart(2, '0')); }
+      return arr;
+    }
+
+    // Modal Visibility Control
+    function closeDiagnosticModal() {
+      const modal = document.getElementById('diag-modal');
+      modal.classList.add('opacity-0');
+      modal.querySelector('.transform').classList.add('scale-95');
+      setTimeout(() => { modal.classList.add('hidden'); }, 300);
+    }
+
+    function clearGradedRecords() {
+      gradedRecords = []; updateGradedTable();
+      showToast("Data Reset Successful", "All graded test runs dropped completely.", "warning");
+    }
+
+    function exportToExcel() {
+      if (gradedRecords.length === 0) { showToast("Export Denied", "No parsed records inside table to structure for spreadsheet.", "warning"); return; }
+
+      const headers = ["Student ID / Name", "Class", "Class Number", "Total Score", "Percentage %"];
+      
+      // CRITICAL FIX: Numerical sort standard questions sequentially (Q1, Q2, Q3...) instead of raw geographical template indices
+      const standardQ = calibrationData.questions
+        .filter(q => typeof q.id === 'number' && q.id <= gradingQuestionLimit)
+        .sort((a, b) => Number(a.id) - Number(b.id));
+        
+      standardQ.forEach(q => { headers.push(`Q${q.id} Answer`); });
+
+      const excelRows = [headers];
+
+      gradedRecords.forEach(rec => {
+        const scorePercent = Math.round((rec.correctCount / rec.totalCount) * 100) || 0;
+        const rowData = [ rec.studentId, rec.studentClass || "—", rec.studentClassNum || "—", `${rec.correctCount} / ${rec.totalCount}`, `${scorePercent}%` ];
+        
+        // Push answers sequentially matching exact header sort
+        standardQ.forEach(q => { rowData.push(rec.answers[q.id]); });
+        excelRows.push(rowData);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(excelRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "OMR Graded Output");
+
+      XLSX.writeFile(wb, "OMR_Graded_Results.xlsx");
+      showToast("Excel Export Complete", "Results downloaded to OMR_Graded_Results.xlsx", "success");
+    }
+
+    function loadDemoMode() {
+      showToast("Loading Simulation...", "Generating digital mock MCQ sheet, metadata blocks, and student scans...", "info");
+
+      const mockCanvas = document.createElement('canvas');
+      mockCanvas.width = 1000; mockCanvas.height = 1414;
+      const ctx = mockCanvas.getContext('2d');
+
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, 1000, 1414);
+      ctx.strokeStyle = "#1e293b"; ctx.lineWidth = 4; ctx.strokeRect(40, 40, 920, 1320);
+
+      ctx.fillStyle = "#0f172a"; ctx.font = "bold 28px Inter, sans-serif";
+      ctx.fillText("STATEWIDE STANDARDIZED MCQ ASSESSMENT", 100, 110);
+      ctx.font = "14px Inter, sans-serif";
+      ctx.fillText("Multiple Choice Answer Form — Complete Bubbles fully with Black Pen.", 100, 140);
+
+      const drawMockAnchor = (ctx, x, y) => {
+        const size = 44; const half = size / 2;
+        ctx.fillStyle = "#111827"; 
+        ctx.fillRect(x - half, y - half, size, size);
+      };
+
+      drawMockAnchor(ctx, 59, 56); drawMockAnchor(ctx, 943, 51);
+      drawMockAnchor(ctx, 63, 1371); drawMockAnchor(ctx, 947, 1369);
+
+      ctx.fillStyle = "#1e293b"; ctx.font = "bold 13px Inter, sans-serif"; ctx.fillText("Class", 550, 240);
+      ctx.font = "bold 10px Inter, sans-serif"; ctx.fillStyle = "#475569";
+      ctx.fillText("1-6", 620, 260); ctx.fillText("A-E", 649, 260);
+
+      const metadataClassY = 258;
+      const metadataNoY = 234;
+      const rowGap = 24;
+
+      for (let r = 0; r < 6; r++) {
+        ctx.strokeRect(620 - 10, metadataClassY + (r * rowGap) - 6, 20, 12);
+        ctx.fillText(String(r + 1), 620, metadataClassY + (r * rowGap));
+      }
+      const alphas = ['A', 'B', 'C', 'D', 'E'];
+      for (let r = 0; r < 5; r++) {
+        ctx.strokeRect(649 - 10, metadataClassY + (r * rowGap) - 6, 20, 12);
+        ctx.fillText(alphas[r], 649, metadataClassY + (r * rowGap));
+      }
+
+      ctx.fillStyle = "#1e293b"; ctx.font = "bold 13px Inter, sans-serif"; ctx.fillText("Class No.", 785, 240);
+      ctx.font = "bold 10px Inter, sans-serif"; ctx.fillStyle = "#475569";
+      ctx.fillText("Tens", 703, 260); ctx.fillText("Ones", 732, 260);
+
+      for (let r = 0; r < 10; r++) {
+        ctx.strokeRect(703 - 10, metadataNoY + (r * rowGap) - 6, 20, 12);
+        ctx.fillText(String(r), 703, metadataNoY + (r * rowGap));
+        ctx.strokeRect(732 - 10, metadataNoY + (r * rowGap) - 6, 20, 12);
+        ctx.fillText(String(r), 732, metadataNoY + (r * rowGap));
+      }
+
+      const letters = ['A', 'B', 'C', 'D', 'E'];
+      const yCoords = [548, 572, 596, 620, 644, 668, 692, 716, 740, 764, 788, 812, 836, 860, 884, 908, 932, 956, 980, 1004];
+
+      for (let i = 0; i < 20; i++) {
+        const qY = yCoords[i];
+        ctx.fillStyle = "#1e293b"; ctx.font = "bold 13px Inter, sans-serif";
+        ctx.textAlign = "left"; ctx.fillText(`Q${i + 1}`, 221, qY);
+        for (let j = 0; j < 5; j++) {
+          const bX = 281 + (j * 29);
+          ctx.strokeStyle = "#000000"; ctx.lineWidth = 1; ctx.strokeRect(bX - 10, qY - 6, 20, 12);
+          ctx.font = "8px Inter, sans-serif"; ctx.fillStyle = "#1e293b"; ctx.textAlign = "center"; ctx.fillText(letters[j], bX, qY);
+        }
+      }
+      for (let i = 0; i < 20; i++) {
+        const qY = yCoords[i];
+        ctx.fillStyle = "#1e293b"; ctx.font = "bold 13px Inter, sans-serif";
+        ctx.textAlign = "left"; ctx.fillText(`Q${i + 21}`, 521, qY);
+        for (let j = 0; j < 5; j++) {
+          const bX = 581 + (j * 29);
+          ctx.strokeStyle = "#000000"; ctx.lineWidth = 1; ctx.strokeRect(bX - 10, qY - 6, 20, 12);
+          ctx.font = "8px Inter, sans-serif"; ctx.fillStyle = "#1e293b"; ctx.textAlign = "center"; ctx.fillText(letters[j], bX, qY);
+        }
+      }
+      for (let i = 0; i < 5; i++) {
+        const qY = yCoords[i];
+        ctx.fillStyle = "#1e293b"; ctx.font = "bold 13px Inter, sans-serif";
+        ctx.textAlign = "left"; ctx.fillText(`Q${i + 41}`, 821, qY);
+        for (let j = 0; j < 5; j++) {
+          const bX = 881 + (j * 29);
+          ctx.strokeStyle = "#000000"; ctx.lineWidth = 1; ctx.strokeRect(bX - 10, qY - 6, 20, 12);
+          ctx.font = "8px Inter, sans-serif"; ctx.fillStyle = "#1e293b"; ctx.textAlign = "center"; ctx.fillText(letters[j], bX, qY);
+        }
+      }
+
+      const templateDataURL = mockCanvas.toDataURL('image/jpeg', 0.95);
+
+      answerKey = {};
+      const mockKeyLabels = ['A', 'B', 'C', 'D', 'E'];
+      for (let i = 1; i <= 45; i++) { answerKey[i] = mockKeyLabels[(i * 3 + 1) % 5]; }
+
+      calibrationData.questions = JSON.parse(JSON.stringify(MOCK_BUILTIN_JSON_TEMPLATE.questions));
+      calibrationData.anchors = JSON.parse(JSON.stringify(MOCK_BUILTIN_JSON_TEMPLATE.anchors));
+
+      loadTemplateImage(templateDataURL, true);
+
+      setTimeout(() => {
+        gradedRecords = [];
+        const studentSpecs = [
+          { name: "Student_John_Doe", classDigit: 3, classLetter: 'B', classNoTens: 0, classNoOnes: 7 },
+          { name: "Student_Jane_Smith", classDigit: 5, classLetter: 'A', classNoTens: 2, classNoOnes: 4 },
+          { name: "Student_Alex_Vance", classDigit: 1, classLetter: 'E', classNoTens: 4, classNoOnes: 9 }
+        ];
+        
+        studentSpecs.forEach((spec, sIdx) => {
+          const scanCanvas = document.createElement('canvas');
+          scanCanvas.width = 1100; scanCanvas.height = 1500;
+          const sCtx = scanCanvas.getContext('2d');
+
+          sCtx.fillStyle = "#cbd5e1"; sCtx.fillRect(0, 0, 1100, 1500);
+          sCtx.translate(55, 45);
+          const angleRad = (sIdx === 0) ? 0.015 : (sIdx === 1) ? -0.012 : 0;
+          sCtx.rotate(angleRad);
+          
+          sCtx.drawImage(mockCanvas, 0, 0);
+
+          sCtx.fillStyle = "#111827";
+          for (let r = 0; r < 6; r++) { if (r + 1 === spec.classDigit) sCtx.fillRect(620 - 10, metadataClassY + (r * rowGap) - 6, 20, 12); }
+          for (let r = 0; r < 5; r++) { if (alphas[r] === spec.classLetter) sCtx.fillRect(649 - 10, metadataClassY + (r * rowGap) - 6, 20, 12); }
+          for (let r = 0; r < 10; r++) {
+            if (r === spec.classNoTens) sCtx.fillRect(703 - 10, metadataNoY + (r * rowGap) - 6, 20, 12);
+            if (r === spec.classNoOnes) sCtx.fillRect(732 - 10, metadataNoY + (r * rowGap) - 6, 20, 12);
+          }
+
+          for (let i = 0; i < 45; i++) {
+            const qY = yCoords[i % 20];
+            const baseColX = i < 20 ? 281 : (i < 40 ? 581 : 881);
+            
+            let chosenOptionIdx = (i * 3 + 1) % 5;
+            if (sIdx === 1 && i % 4 === 0) chosenOptionIdx = (chosenOptionIdx + 1) % 5;
+            if (sIdx === 2 && i % 3 === 0) chosenOptionIdx = -1;
+            if (sIdx === 2 && i === 11) chosenOptionIdx = 99;
+
+            for (let j = 0; j < 5; j++) {
+              const bX = baseColX + (j * 29);
+              if (j === chosenOptionIdx || (chosenOptionIdx === 99 && (j === 1 || j === 3))) {
+                sCtx.fillRect(bX - 10, qY - 6, 20, 12);
+              } 
+            }
+          }
+
+          const mockName = `${spec.name}.png`;
+          const result = runOMRGradingPipeline(scanCanvas, mockName);
+          if (result) gradedRecords.push(result);
+        });
+
+        updateGradedTable();
+        switchStep(3);
+        showToast("Demo Simulated Successfully!", "Processed 3 mock sheets. You can now override student answers, review parsed class rosters, or download Excel reports.", "success");
+      }, 600);
+    }
+  </script>
+</body>
+</html>
