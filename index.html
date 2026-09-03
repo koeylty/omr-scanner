@@ -935,49 +935,26 @@
       }
     };
 
-
-function loadOpenCV() {
-  const urls = [
-    'https://cdn.jsdelivr.net/npm/opencv.js@4.5.5/opencv.js',
-    'https://unpkg.com/opencv.js@4.5.5/opencv.js',
-    'https://docs.opencv.org/4.5.5/opencv.js'   // 最后的保底
-  ];
-  
-  let currentIndex = 0;
-
-  function tryLoad(index) {
-    if (index >= urls.length) {
-      showToast("Initialization Error", "All OpenCV.js CDN sources failed.", "error");
-      return;
+    function loadOpenCV() {
+      const script = document.createElement('script');
+      script.src = 'https://docs.opencv.org/4.5.5/opencv.js';
+      script.async = true;
+      script.onload = () => {
+        if (typeof cv !== 'undefined' && cv.onRuntimeInitialized) {
+          cv.onRuntimeInitialized = onOpenCVReady;
+        } else {
+          let checkInterval = setInterval(() => {
+            if (typeof cv !== 'undefined' && cv.Mat) {
+              clearInterval(checkInterval);
+              onOpenCVReady();
+            }
+          }, 300);
+        }
+      };
+      script.onerror = () => { showToast("Initialization Error", "Failed to fetch OpenCV.js core CDN.", "error"); };
+      document.head.appendChild(script);
     }
-    const script = document.createElement('script');
-    script.src = urls[index];
-    script.async = true;
-    script.onload = () => {
-    
-      if (typeof cv !== 'undefined' && cv.onRuntimeInitialized) {
-        cv.onRuntimeInitialized = onOpenCVReady;
-      } else {
-        let checkInterval = setInterval(() => {
-          if (typeof cv !== 'undefined' && cv.Mat) {
-            clearInterval(checkInterval);
-            onOpenCVReady();
-          }
-        }, 300);
-      }
-    };
-    script.onerror = () => {
-     
-      tryLoad(index + 1);
-    };
-    document.head.appendChild(script);
-  }
 
-  tryLoad(0);
-}
-
-
-    
     function onOpenCVReady() {
       cvLoaded = true;
       document.getElementById('cv-status-spinner').classList.add('hidden');
