@@ -936,26 +936,27 @@
     };
 
     function loadOpenCV() {
-      const script = document.createElement('script');
-      
-      script.src = 'https://registry.npmmirror.com/@techstark/opencv-js/4.10.0-1/files/opencv.js';
-      script.async = true;
-      script.onload = () => {
-        if (typeof cv !== 'undefined' && cv.onRuntimeInitialized) {
-          cv.onRuntimeInitialized = onOpenCVReady;
-        } else {
-          let checkInterval = setInterval(() => {
-            if (typeof cv !== 'undefined' && cv.Mat) {
-              clearInterval(checkInterval);
-              onOpenCVReady();
-            }
-          }, 300);
+  const script = document.createElement('script');
+ 
+  script.src = 'https://cdn.jsdelivr.net/npm/opencv.js@4.5.5/opencv.js';
+  script.async = true;
+  script.onload = () => {
+    if (typeof cv !== 'undefined' && cv.onRuntimeInitialized) {
+      cv.onRuntimeInitialized = onOpenCVReady;
+    } else {
+      let checkInterval = setInterval(() => {
+        if (typeof cv !== 'undefined' && cv.Mat) {
+          clearInterval(checkInterval);
+          onOpenCVReady();
         }
-      };
-      script.onerror = () => { showToast("Initialization Error", "Failed to fetch OpenCV.js core CDN.", "error"); };
-      document.head.appendChild(script);
+      }, 300);
     }
-
+  };
+  script.onerror = () => { 
+    showToast("Initialization Error", "Failed to fetch OpenCV.js core CDN.", "error");
+  };
+  document.head.appendChild(script);
+}
     function onOpenCVReady() {
       cvLoaded = true;
       document.getElementById('cv-status-spinner').classList.add('hidden');
