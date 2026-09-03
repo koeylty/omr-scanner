@@ -935,25 +935,29 @@
       }
     };
 
-    function loadOpenCV() {
-      const script = document.createElement('script');
-      script.src = './opencv.js';
-      script.async = true;
-      script.onload = () => {
-        if (typeof cv !== 'undefined' && cv.onRuntimeInitialized) {
-          cv.onRuntimeInitialized = onOpenCVReady;
-        } else {
-          let checkInterval = setInterval(() => {
-            if (typeof cv !== 'undefined' && cv.Mat) {
-              clearInterval(checkInterval);
-              onOpenCVReady();
-            }
-          }, 300);
+function loadOpenCV() {
+  const script = document.createElement('script');
+  script.src = './opencv.js';   // 直接引用倉庫入面嘅檔案
+  script.async = true;
+  script.onload = () => {
+    if (typeof cv !== 'undefined' && cv.onRuntimeInitialized) {
+      cv.onRuntimeInitialized = onOpenCVReady;
+    } else {
+      let checkInterval = setInterval(() => {
+        if (typeof cv !== 'undefined' && cv.Mat) {
+          clearInterval(checkInterval);
+          onOpenCVReady();
         }
-      };
-      script.onerror = () => { showToast("Initialization Error", "Failed to fetch OpenCV.js core CDN.", "error"); };
-      document.head.appendChild(script);
+      }, 300);
     }
+  };
+  script.onerror = () => {
+    showToast("Initialization Error", "本地 opencv.js 檔案未找到，請確認檔案已上載到倉庫。", "error");
+  };
+  document.head.appendChild(script);
+}
+
+    
 
     function onOpenCVReady() {
       cvLoaded = true;
